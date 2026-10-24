@@ -38,15 +38,12 @@ class DataBindingTest < Minitest::Test
 
   # sabotage: carry no src (SrcValue.new(src: nil)) in DataBinding.value_of;
   # the assert_equal on the rows fails.
-  def test_a_value_that_fails_raises_error_execution_and_leaves_the_id_undefined
-    raised = B.start(context(machine: chart("early"))).raised
+  def test_a_value_that_fails_is_a_failure_and_leaves_the_id_undefined
+    failures = B.start(context(machine: chart("early"))).failures
 
-    rows = raised.map { [_1.name, _1.type, _1.origin, reason_row(_1.reason)] }
-    expected = [[2, :expression_compile_error], [3, D::SrcValue.new(src: "v.json")], [4, "nope"]].map do |index, reason|
-      ["error.execution", :platform, { kind: :data, d_index: index }, reason]
-    end
+    rows = failures.map { [_1.d_index, reason_row(_1.reason)] }
 
-    assert_equal expected, rows
+    assert_equal [[2, :expression_compile_error], [3, D::SrcValue.new(src: "v.json")], [4, "nope"]], rows
   end
 
   # sabotage: bind every index under late binding too (drop the binding test
@@ -70,17 +67,17 @@ class DataBindingTest < Minitest::Test
     started = B.start(context(machine: chart("late")))
     entered = B.enter_state(D.context(started.data, chart("late"), [1]), 1)
 
-    assert_equal [2, []], [entered.data["e"], entered.raised]
+    assert_equal [2, []], [entered.data["e"], entered.failures]
   end
 
-  # sabotage: append no failure (answer [data, raised]) in
-  # DataBinding.bind_one; the assert_equal on the raised fails.
-  def test_a_states_own_data_that_fails_on_entry_raises_error_execution
+  # sabotage: record no failure (answer [data, changes, failures]) in
+  # DataBinding.bind_one; the assert_equal on the failures fails.
+  def test_a_states_own_data_that_fails_on_entry_is_a_failure
     failing = machine('<state id="s1"><datamodel><data id="e" expr="nope"/></datamodel></state>',
                       %(#{ROOT} binding="late"))
     entered = B.enter_state(B.start(context(machine: failing)).then { D.context(_1.data, failing, [1]) }, 1)
 
-    assert_equal([[{ kind: :data, d_index: 0 }, "nope"]], entered.raised.map { [_1.origin, _1.reason.source] })
+    assert_equal([[0, "nope"]], entered.failures.map { [_1.d_index, _1.reason.source] })
     assert_same U, entered.data["e"]
   end
 

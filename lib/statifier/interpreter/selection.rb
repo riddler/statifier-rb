@@ -16,17 +16,24 @@ module Statifier
     # The two selection walks evaluate conditions against one context built
     # per round from the datamodel the caller passes and the snapshot's
     # configuration. A condition that fails, or answers something other than
-    # true or false, leaves its transition unselected and raises
-    # `error.execution`: the walks answer the raised events with the
-    # transitions ({Selected}), in walk order, for the caller to queue.
+    # true or false, leaves its transition unselected: the walks answer,
+    # beside the transitions, every written condition they evaluated and
+    # how it came out ({Selected}), in walk order, and the caller raises an
+    # `error.execution` for each that failed.
     #
     # @api private
     module Selection
       # What a selection round answered: `transitions`, the transitions that
-      # fire, in the order the round took them; and `raised`, a
-      # {Datamodel::ExecutionError} per condition that failed, in walk order,
-      # each with the origin `{kind: :transition, t_index:}`.
-      Selected = ::Data.define(:transitions, :raised)
+      # fire, in the order the round took them; and `evaluations`, an
+      # {Evaluation} per written condition the round evaluated, in walk
+      # order.
+      Selected = ::Data.define(:transitions, :evaluations)
+
+      # One written condition evaluated: the transition's `t_index`; its
+      # `outcome`, `:enabled`, `:disabled` or `:error`; and `reason`, the
+      # failure an `:error` carries, else nil. A transition with no
+      # condition is never recorded.
+      Evaluation = ::Data.define(:t_index, :outcome, :reason)
 
       module_function
 
@@ -150,24 +157,24 @@ module Statifier
       end
 
       # The round both selection walks share: every active atomic state in
-      # document order, the failed conditions raised in walk order, the first
-      # occurrence of each transition kept and the conflicts removed.
+      # document order, the written conditions recorded in walk order, the
+      # first occurrence of each transition kept and the conflicts removed.
       # `tokens` is nil for the eventless walk.
       def round(snapshot, context, tokens)
-        raised = []
+        evaluations = []
         enabled = snapshot.configuration.select { snapshot.machine.atomic?(_1) }.sort.filter_map do |atomic|
-          selected_for_atomic_state(snapshot.machine, context, atomic, tokens, raised)
+          selected_for_atomic_state(snapshot.machine, context, atomic, tokens, evaluations)
         end
         transitions = remove_conflicting_transitions(snapshot, enabled.uniq(&:t_index))
-        Selected.new(transitions:, raised: raised.freeze)
+        Selected.new(transitions:, evaluations: evaluations.freeze)
       end
 
       # The labelled `break loop` of one atomic state's search: the state,
       # then each proper ancestor outward, stopping at the first that has an
       # enabled transition.
-      def selected_for_atomic_state(machine, context, atomic, tokens, raised)
+      def selected_for_atomic_state(machine, context, atomic, tokens, evaluations)
         [atomic, *machine.proper_ancestors(atomic)].each do |index|
-          found = first_matching_transition(machine, context, index, tokens, raised)
+          found = first_matching_transition(machine, context, index, tokens, evaluations)
           return found unless found.nil?
         end
         nil
@@ -176,27 +183,33 @@ module Statifier
       # A state's own transitions in document order, stopping at the first
       # enabled one, so a later sibling's condition is never evaluated once
       # an earlier one is taken.
-      def first_matching_transition(machine, context, index, tokens, raised)
+      def first_matching_transition(machine, context, index, tokens, evaluations)
         machine.state(index).transitions.each do |t_index|
           transition = machine.transitions.fetch(t_index)
-          return transition if enabled?(context, transition, tokens, raised)
+          return transition if enabled?(context, transition, tokens, evaluations)
         end
         nil
       end
 
       # The eventless predicate when `tokens` is nil, the event-matched one
-      # otherwise; both end in the transition's condition, a failure of
-      # which is recorded in `raised`.
-      def enabled?(context, transition, tokens, raised)
+      # otherwise; both end in the transition's condition, which, when
+      # written, is recorded in `evaluations`.
+      def enabled?(context, transition, tokens, evaluations)
         eventless = transition.events.empty?
         return false unless tokens.nil? ? eventless : !eventless && NameMatch.name_match?(transition.events, tokens)
+        return true if transition.cond.nil?
 
         evaluated = Datamodel.evaluate_cond(context, transition.cond)
-        return evaluated.value if evaluated.ok?
+        evaluations << evaluation(transition, evaluated)
+        evaluated.ok? && evaluated.value
+      end
 
-        origin = { kind: :transition, t_index: transition.t_index }
-        raised << Datamodel::ExecutionError.new(origin:, reason: evaluated.error)
-        false
+      # How one written condition came out.
+      def evaluation(transition, evaluated)
+        t_index = transition.t_index
+        return Evaluation.new(t_index:, outcome: :error, reason: evaluated.error) unless evaluated.ok?
+
+        Evaluation.new(t_index:, outcome: evaluated.value ? :enabled : :disabled, reason: nil)
       end
 
       # The context one round evaluates against.

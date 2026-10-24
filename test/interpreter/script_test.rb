@@ -22,7 +22,7 @@ class ScriptTest < Minitest::Test
     outcome = run_block(%(<script>this is not a program ]</script><raise event="never"/>))
 
     assert_equal ["error.execution"], raised_names(outcome)
-    assert_instance_of Statifier::Compiler::Error, outcome.raised.first.reason
+    assert_equal "error", outcome.raised.first.data["kind"]
   end
 
   # sabotage: keep run.context in place of run.context.with(data:
@@ -32,6 +32,6 @@ class ScriptTest < Minitest::Test
 
     assert_equal [9, false], [outcome.context.data["x"], outcome.context.data.key?("y")]
     assert_equal ["error.execution"], raised_names(outcome)
-    assert_instance_of DM::EvaluatorError, outcome.raised.first.reason
+    assert_equal "evaluator_error", outcome.raised.first.data["kind"]
   end
 end

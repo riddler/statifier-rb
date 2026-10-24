@@ -49,9 +49,15 @@ module ContentHelper
   # The names of the events a block raised, in order.
   def raised_names(outcome) = outcome.raised.map(&:name)
 
-  # What each event a block raised carries: a failure's reason, a raised
+  # What each event a block raised carries: a failure's data, a raised
   # event's name.
-  def reasons(outcome) = outcome.raised.map { _1.respond_to?(:reason) ? _1.reason : _1.name }
+  def reasons(outcome) = outcome.raised.map { _1.name.start_with?("error.") ? _1.data : _1.name }
+
+  # An event's origin and data.
+  def origin_and_data(event) = [event.cause.origin, event.data]
+
+  # A failure reason as the data of the event it raises.
+  def rv(reason) = DM::ReasonValue.of(reason)
 
   # The effects of one class.
   def effects_of(outcome, klass) = outcome.effects.grep(klass)

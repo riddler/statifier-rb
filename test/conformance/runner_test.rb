@@ -71,8 +71,8 @@ class RunnerTest < Minitest::Test
 
   # sabotage: make Drive.call answer :pass; the assert_equal on the reason
   # every case fails with fails (and the registry would then claim cases no
-  # interpreter drives).
-  def test_the_drive_passes_nothing_while_no_interpreter_exists
+  # driver drives).
+  def test_the_drive_passes_nothing_while_no_driver_exists
     reasons = Conformance::Runner.run(CORPUS).values.map { |result| result["reason"] }.uniq
 
     assert_equal [Conformance::Drive::NOT_DRIVEN], reasons

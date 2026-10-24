@@ -50,33 +50,20 @@ module Statifier
 
         # The origin of an event the content node at `c_index` raises.
         def origin(c_index) = { kind: :content, c_index:, owner: }
+
+        # The {Event::Cause} of an event the content node at `c_index`
+        # raises: its origin and the counters.
+        def cause(c_index) = Event::Cause.new(origin: origin(c_index), macrostep:, microstep:, round:)
       end
 
       # What a block answered: the `context` it leaves; `sends`, the
       # {Send::SendState} it leaves; `effects` in the order the nodes made
-      # them; `raised`, the events it raised in queue order (a {Raised} per
-      # `<raise>`, a {Datamodel::ExecutionError} per failure, a {SendError}
-      # per refused `<send>`); and `executed`, the `c_index` of every
+      # them; `raised`, the {Event}s it raised in queue order (an internal
+      # event per `<raise>`, a platform `error.execution` per failure and an
+      # `error.execution` or `error.communication` per refused `<send>`,
+      # each with its {Event::Cause}); and `executed`, the `c_index` of every
       # top-level node that ran, the failing one included.
       Outcome = ::Data.define(:context, :sends, :effects, :raised, :executed)
-
-      # The internal event a `<raise>` queues: its `name` and its `origin`,
-      # `{kind: :content, c_index:, owner:}`. It carries no data.
-      Raised = ::Data.define(:name, :origin) do
-        # @return [Symbol] the event's type
-        def type = :internal
-
-        # @return [Object] the event's data: none
-        def data = Predicator::UNDEFINED
-      end
-
-      # The platform event a refused `<send>` raises: `name`,
-      # `error.execution` or `error.communication`; `origin` as {Raised}'s;
-      # `reason`, its data; and `sendid`, the refused send's id.
-      SendError = ::Data.define(:name, :origin, :reason, :sendid) do
-        # @return [Symbol] the event's type
-        def type = :platform
-      end
 
       # A node inside an `<if>` or a `<foreach>` failed: `c_index` names it
       # and `reason` is its failure.
@@ -123,10 +110,10 @@ module Statifier
       # One top-level node run, its recorded condition failures raised
       # against it, then its own failure: `[run, true]` when it failed.
       def top_level(run, node, stamp)
-        origin = stamp.origin(node.c_index)
+        cause = stamp.cause(node.c_index)
         run, reason = execute_node(run, node, stamp)
-        run = drain(run, origin)
-        reason.nil? ? [run, false] : [run.raise_events(error_event(reason, origin)), true]
+        run = drain(run, cause)
+        reason.nil? ? [run, false] : [run.raise_events(error_event(reason, cause)), true]
       end
 
       # One node run: `[run, nil]` on success, else `[run, reason]` with the
@@ -136,25 +123,30 @@ module Statifier
         reason.nil? ? [after, nil] : [after.with(effects: run.effects), reason]
       end
 
-      # The pending condition failures raised against `origin`, the
-      # top-level node's, in the order they were recorded.
-      def drain(run, origin)
+      # The pending condition failures raised with `cause`, the top-level
+      # node's, in the order they were recorded.
+      def drain(run, cause)
         return run if run.pending.empty?
 
-        run.raise_events(*run.pending.map { error_event(_1, origin) }).with(pending: [].freeze)
+        run.raise_events(*run.pending.map { error_event(_1, cause) }).with(pending: [].freeze)
       end
 
       # The event a failure raises: a refused `<send>` raises the event its
-      # kind names, carrying its id; anything else `error.execution`.
-      def error_event(reason, origin)
-        return Datamodel::ExecutionError.new(origin:, reason:) unless reason.is_a?(Send::SendRejected)
+      # kind names, carrying its id; anything else `error.execution`. The
+      # failure, as a predicator value ({Datamodel::ReasonValue.of}), is the
+      # event's data.
+      def error_event(reason, cause)
+        unless reason.is_a?(Send::SendRejected)
+          return Event.platform("error.execution", cause, data: Datamodel::ReasonValue.of(reason))
+        end
 
-        SendError.new(name: "error.#{reason.kind}", origin:, reason: reason.reason, sendid: reason.send_id)
+        Event.platform("error.#{reason.kind}", cause, data: Datamodel::ReasonValue.of(reason.reason),
+                                                      sendid: reason.send_id)
       end
 
       # `<raise>`: one internal event named as written.
       def raise_event(run, node, stamp)
-        [run.raise_events(Raised.new(name: node.event, origin: stamp.origin(node.c_index))), nil]
+        [run.raise_events(Event.internal(node.event, stamp.cause(node.c_index))), nil]
       end
 
       # `<log>`: the label and the evaluated `expr`, nil without one, as an
