@@ -21,13 +21,18 @@ class RatchetTest < Minitest::Test
     Conformance::Runner.run(CORPUS, drive: ->(item) { ids.include?(item["id"]) ? :pass : "not this one" })
   end
 
-  # Writes from results into a copy whose registry holds entries (nil for
-  # the shipped one); answers the problems and the bytes left on disk.
-  def ratchet(results, entries: nil)
+  EMPTY = Conformance::Registry.encode({ "implementation" => "statifier-rb", "corpus_hash" => CORPUS.corpus_hash,
+                                         "claims" => [], "entries" => [] }).freeze
+
+  # Writes from results into a copy whose registry holds entries (none by
+  # default, never the shipped file's); answers the problems and the bytes
+  # left on disk.
+  def ratchet(results, entries: [], **options)
     with_conformance_copy do |dir|
       path = File.join(dir, "registry.json")
-      rewrite_json(dir, "registry.json") { |registry| registry["entries"] = entries } if entries
-      problems = Conformance::Ratchet.write(path, CORPUS, results)
+      File.binwrite(path, EMPTY)
+      rewrite_json(dir, "registry.json") { |registry| registry["entries"] = entries } unless entries.empty?
+      problems = Conformance::Ratchet.write(path, CORPUS, results, **options)
       return [problems, File.binread(path)]
     end
   end
@@ -39,7 +44,7 @@ class RatchetTest < Minitest::Test
     problems, bytes = ratchet(run_passing)
 
     assert_empty problems
-    assert_equal File.binread(Conformance::Registry::PATH), bytes
+    assert_equal EMPTY, bytes
   end
 
   # sabotage: drop the sort_by in Ratchet.next_registry; the assert_equal on
@@ -90,5 +95,15 @@ class RatchetTest < Minitest::Test
     problems, = ratchet({})
 
     assert_equal ["no case was run: there is no run to ratchet from"], problems
+  end
+
+  # sabotage: ignore suites in merged (add every pass); the assert_equal on
+  # the one scion entry fails (the w3c pass is added too).
+  def test_a_named_suite_limits_what_the_run_may_add
+    problems, bytes = ratchet(run_passing(A, M), suites: %w[scion])
+
+    assert_empty problems
+    assert_equal [{ "case_id" => A, "suite" => "scion" }], JSON.parse(bytes)["entries"]
+    assert_equal %w[scion], JSON.parse(bytes)["claims"]
   end
 end

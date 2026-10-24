@@ -62,6 +62,7 @@ top-level documents only.
 mise exec -- bundle exec rake corpus:check          # the four hashes agree (a gate stage)
 mise exec -- bundle exec rake registry              # the registry check (a gate stage)
 mise exec -- bundle exec rake ratchet               # record in registry.json the cases a run made now passes
+mise exec -- bundle exec rake "ratchet[scion]"      # the same, adding the passes of the named suites only
 mise exec -- bundle exec rake "corpus:refresh[TAG,CLONE]"   # move the copy to a tag
 ```
 
@@ -103,8 +104,9 @@ manifest's hash, with exactly the claims those entries count toward, one
 entry per line in the reference's encoding. It refuses, writing nothing,
 when an entry already recorded did not pass, when it is recorded under
 another suite or the corpus does not hold it, and when the run is not of the
-whole corpus. There is no command that adds a case by id. With nothing
-passing, it writes the registry it found.
+whole corpus. `rake "ratchet[scion]"` still runs the whole corpus but adds
+only the passes of the suites it names. There is no command that adds a case
+by id. With nothing passing, it writes the registry it found.
 
 **Registry check.** `rake registry` runs the checks under "The check" in the
 copy's `RATCHET.md` - the pin, rule 1, the claims, every entry passing in a
@@ -113,7 +115,9 @@ case entered twice, another implementation's name and a file the ratchet
 would not have written. Before the first entry the registry carries the pin,
 no claims and no entries, and the check says that no claim is made. The
 copy's `schema/registry.json` refuses that file, since an empty registry
-makes no claim; it stays this registry's shape until a run passes a case.
+makes no claim; that was this registry's shape until a run passed a case.
+The stage then prints one line per case that fails in the run, in the
+reference's order, with the features it needs.
 
 **Refresh.** Moving the copy to another tag is a change of its own, reviewed
 like code. `rake "corpus:refresh[TAG,CLONE]"` reads the tag from `CLONE`, a
