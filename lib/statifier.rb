@@ -53,10 +53,14 @@ module Statifier
   # carries a `reason` symbol, a `message` for a person and a `location`, the
   # span in the source it names; all but the reader's carry a `detail` Hash
   # too. A validator warning never refuses: a chart that compiles carries
-  # its warnings on the machine.
+  # its warnings on the machine, as the reference's machine does.
   #
   # The machine is a frozen value, deeply, and its shape is internal: a host
-  # hands it on and reads none of its members.
+  # hands it on and reads one of its members only, `warnings`, the
+  # validator's warnings in document order, a frozen list of
+  # `Statifier::Validator::Warning` values, each with the `reason`,
+  # `detail`, `message` and `location` an error carries (empty for a chart
+  # with none).
   #
   # @example
   #   result = Statifier.compile(<<~SCXML)

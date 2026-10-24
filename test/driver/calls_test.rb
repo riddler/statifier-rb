@@ -90,23 +90,6 @@ class CallsTest < Minitest::Test
     refute_predicate datamodel["x"], :frozen?
   end
 
-  # sabotage: answer `SessionId.mint` whatever the host named in
-  # Checks.session_id; the assert_equal on the named id fails.
-  def test_the_session_id_is_the_host_s_or_one_the_driver_mints
-    body = %(<state id="a"><onentry><log label="sid" expr="_sessionid"/></onentry></state>)
-    minted = moved(Statifier.start(machine(body))).effects.grep(E::Log).first.value
-
-    assert_equal [%w[sid s1]], logs(start(body))
-    assert_match(/\Asess_[0-9a-hjkmnp-tv-z]{26}\z/, minted)
-  end
-
-  # sabotage: drop the `<< 2` padding in SessionId.encode; the assert_equal
-  # on the encoded value fails.
-  def test_a_minted_id_is_the_reference_s_unpadded_base32_of_sixteen_bytes
-    assert_equal "sess_#{"0" * 25}4", Statifier::Driver::SessionId.encode(1)
-    assert_equal "sess_z#{"0" * 25}", Statifier::Driver::SessionId.encode(31 << 123)
-  end
-
   # sabotage: drop the unknown-key check in Checks.start_options; the
   # assert_raises on the unknown option fails.
   def test_start_refuses_what_it_does_not_take

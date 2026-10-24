@@ -58,12 +58,14 @@ module Statifier
         raise ArgumentError, "processors must register the types the chart started with: #{state.send_types}"
       end
 
-      # The session id the host named, or a fresh one.
+      # The session id the host named, or a fresh one, frozen: a host's
+      # string is copied first, so the state holds nothing the host can
+      # change and the host's string is never frozen in place.
       #
       # @raise [TypeError] when it is neither nil nor a String
       def session_id(session_id)
-        return SessionId.mint if session_id.nil?
-        return session_id if session_id.is_a?(String)
+        return -SessionId.mint if session_id.nil?
+        return -session_id if session_id.is_a?(String)
 
         raise TypeError, "a session id is a String, got #{session_id.class}"
       end
