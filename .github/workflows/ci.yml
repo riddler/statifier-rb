@@ -58,9 +58,10 @@ jobs:
           fi
           echo "ruby ${running}, as mise.toml pins"
 
-      # The gate is the Rakefile's default task: rubocop, then the test suite
-      # under the coverage minimum .simplecov sets. The command is read out of
-      # .claude/wurk.json (gate.full) rather than written here, so the gate CI
+      # The gate is the Rakefile's default task: rubocop, the corpus hash
+      # check (corpus:check), the registry check (registry), then the test
+      # suite under the coverage minimum .simplecov sets. The command is read
+      # out of .claude/wurk.json (gate.full) rather than written here, so the gate CI
       # runs and the gate an agent must have green are one definition with one
       # place to change it. The leading `mise exec --` is dropped: setup-ruby
       # has already put the pinned Ruby on the PATH. The command is read and

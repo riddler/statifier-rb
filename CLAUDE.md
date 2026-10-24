@@ -97,7 +97,7 @@ publishes on that tag push, and a failed workflow is
 re-run from its Actions page, never worked round by a local publish. Merging
 the prep follows this file's merge row, and nothing else this file reserves
 for the operator changes. A prep is cut only on a green full gate, which
-includes the conformance corpus check once the corpus is vendored.
+includes the conformance corpus check.
 
 The release workflow publishes by rubygems trusted publishing: its publish
 job exchanges the job's OIDC token with rubygems.org through
@@ -117,10 +117,10 @@ paragraph, and in the header of the workflow it governs; a change a user of
 the API could notice is a changelog fragment (Conventions, below). The
 statechart semantics are not decided here: they are statifier-ex's
 conformance corpus and its records, in https://github.com/riddler/statifier-ex,
-read at the tag the vendored corpus names (`conformance/statifier.vendored.json`,
-once the corpus is vendored). That this repository keeps no decision records
-was decided by the conductor under a standing consent, 2026-10-23; a future
-API decision may start a `docs/adr` directory.
+read at the tag the vendored corpus names (`conformance/statifier.vendored.json`).
+That this repository keeps no decision records was decided by the conductor
+under a standing consent, 2026-10-23; a future API decision may start a
+`docs/adr` directory.
 
 Widening this section is a decision for the operator to make and record here.
 An agent may draft the change; it does not adopt it.
@@ -152,10 +152,14 @@ The tree holds the scaffold of the 0.1.0 package: the empty `Statifier` module
 gemspec, the `Gemfile`, `mise.toml`, the lint and coverage configuration, the
 `Rakefile` and its gate, the tests of the version, the gemspec and the
 release task's guard, CI (`.github/workflows/ci.yml`) and the release
-workflow (`.github/workflows/release.yml`). The 2019 stub is gone. The
-vendored corpus and the interpreter arrive with later changes; until they do,
-the sentences in this file about them describe the target, not the current
-tree.
+workflow (`.github/workflows/release.yml`). It also holds the conformance
+apparatus: the corpus vendored from statifier-ex under `conformance/`, its
+provenance record and this package's registry, and the corpus check, the
+registry check, the ratchet, the refresh and the conformance runner under
+`test/conformance/` (`conformance/README.md` says what each is). The 2019
+stub is gone. The interpreter arrives with later changes; until it does, the
+sentences in this file about it describe the target, not the current tree,
+and the registry claims no case.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
   no statechart code; the stub stays installable from rubygems.org.
@@ -168,7 +172,7 @@ tree.
   2026-10-23).
 - **Interpreter core only.** Persistence and timer adapters are out of this
   package. Host processors are passed per call.
-- **The corpus is the arbiter.** `conformance/statifier/` will hold the
+- **The corpus is the arbiter.** `conformance/statifier/` holds the
   corpus vendored from statifier-ex at a release tag, its tag, commit and
   hash recorded in `conformance/statifier.vendored.json`. The vendored files
   are never edited, and every case this port claims passes with no skip
@@ -191,9 +195,10 @@ mise exec -- bundle exec rake         # full gate
 ### This repo's own gate rules
 
 - The full gate is `mise exec -- bundle exec rake`, the `Rakefile`'s
-  default task: rubocop, then the tests under SimpleCov at a 90 percent
-  minimum. The corpus hash check and the registry check join it once the
-  corpus is vendored. The inner loop is `mise exec -- bundle exec rake test`.
+  default task: rubocop, then the corpus hash check (`rake corpus:check`),
+  then the registry check (`rake registry`), then the tests under SimpleCov
+  at a 90 percent minimum. The inner loop is
+  `mise exec -- bundle exec rake test`.
   Only the full command is the advancement gate: a `rake test` run, like any
   scoped run, is never evidence for a claim that the gate is green.
 - The supported floor (`required_ruby_version >= 3.3` in the gemspec) is
