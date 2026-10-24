@@ -166,8 +166,7 @@ tree.
   configuration (decided by the conductor under a standing consent,
   2026-10-23).
 - **Interpreter core only.** Persistence and timer adapters are out of this
-  package. Host processors are passed per call, and an HTTP event processor
-  arrives in a later release of this package.
+  package. Host processors are passed per call.
 - **The corpus is the arbiter.** `conformance/statifier/` will hold the
   corpus vendored from statifier-ex at a release tag, its tag, commit and
   hash recorded in `conformance/statifier.vendored.json`. The vendored files
