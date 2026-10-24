@@ -34,7 +34,8 @@ module Statifier
       # The driver's state over a machine state that has just started.
       def fresh(machine_state, session_id, types)
         State.new(machine_state:, session_id:, now_ms: 0, timers: [].freeze, timer_sequence: 0,
-                  external_queue: [].freeze, held_sends: {}.freeze, halted: nil, done: nil, send_types: types)
+                  external_queue: [].freeze, held_sends: {}.freeze, halted: nil, done: nil, send_types: types,
+                  invocations: {}.freeze, mailbox: [].freeze, invoked_as: nil, cancelled: false)
       end
 
       # {Statifier.step}'s body.
@@ -45,12 +46,13 @@ module Statifier
         raise TypeError, "an event name is a String, got #{name.class}" unless name.is_a?(String)
         return refused(:not_running) unless state.machine_state.running
 
-        ok(Run.drain(Routing.enqueue(work, Event.external(name, data:), counted: false)).moved)
+        ok(Run.drain(Routing.enqueue(work, Event.external(name, data:), counted: false).stamped).moved)
       end
 
       # {Statifier.advance}'s body: the clock moved `milliseconds` forward, every
-      # timer due by then fired in due-then-scheduled order, each run to
-      # completion before the next.
+      # timer due by then, anywhere in the tree of sessions, fired in
+      # due-then-scheduled order, each run to completion before the next: the
+      # session it fired in, then each session above it.
       #
       # @return [Result]
       def advance(state, milliseconds, processors:, clock:)
@@ -58,10 +60,19 @@ module Statifier
         return refused(:invalid_duration) unless duration?(milliseconds)
 
         until_ms = state.now_ms + milliseconds
-        while (timer = next_due(work.state, until_ms))
-          work = fire(due(work, timer), timer.delayed)
+        while (found = next_due(work.state, until_ms))
+          path, timer = found
+          work = fire_at(work.with_state(now_ms: timer.due_ms), path, timer)
         end
         ok(work.with_state(now_ms: until_ms).moved)
+      end
+
+      # The timer fired in the session `path` (the invoke ids from this
+      # session down) names, each session on the way drained after it.
+      def fire_at(work, path, timer)
+        return fire(due(work, timer), timer.delayed) if path.empty?
+
+        Run.drain(Mailbox.within(work, path.first) { fire_at(_1, path.drop(1), timer) })
       end
 
       # Whether `value` is a duration the clock can move by: a real number,
@@ -74,10 +85,17 @@ module Statifier
         work.with_state(timers: work.state.timers.reject { _1.equal?(timer) }.freeze, now_ms: timer.due_ms)
       end
 
-      # The earliest pending timer due by `until_ms`, the first scheduled
-      # among equals, or nil.
+      # The earliest pending timer due by `until_ms` in the tree, the first
+      # scheduled among equals, as `[path, timer]`, or nil.
       def next_due(state, until_ms)
-        state.timers.select { _1.due_ms <= until_ms }.min_by { [_1.due_ms, _1.sequence] }
+        pending(state, []).select { _2.due_ms <= until_ms }.min_by { [_2.due_ms, _2.sequence] }
+      end
+
+      # Every pending timer of the tree under `state`, each with the path to
+      # its session.
+      def pending(state, path)
+        state.timers.map { [path, _1] } +
+          state.invocations.flat_map { |id, invocation| pending(invocation.child, path + [id]) }
       end
 
       # A fired timer's send, routed as an immediate one is but never
@@ -92,7 +110,7 @@ module Statifier
           return Routing.enqueue(work, Routing.delivered_event(send, work.state.session_id), counted: false)
         end
 
-        work, deferred = Routing.route(work, send, undelayed: false)
+        work, deferred = Routing.route(work.stamped, send, undelayed: false)
         Run.drain(Run.perform(work, deferred))
       end
 
@@ -127,10 +145,10 @@ module Statifier
       # A refused call.
       def refused(reason) = Result.new(value: nil, error: reason)
 
-      # The routes a session the driver runs can reach: itself, no parent
-      # and no invocation.
-      def own_routes(session_id)
-        Interpreter::Targets::Routes.new(sessions: [session_id].freeze, parent?: false, invokes: [].freeze)
+      # The routes a session the driver runs can reach: itself, its parent
+      # when it has one, and its live invocations, by id.
+      def own_routes(session_id, parent: false, invokes: [].freeze)
+        Interpreter::Targets::Routes.new(sessions: [session_id].freeze, parent?: parent, invokes: invokes.freeze)
       end
 
       # Each registered type's `_ioprocessors` entry, asked of its processor

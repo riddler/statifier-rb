@@ -41,9 +41,15 @@ module Statifier
   # Nothing of the driver's own is in a position, as the reference's
   # position holds none of its session's: the virtual clock, the pending
   # timers, the external queue, the sends a processor holds, a budget halt,
-  # the stopped chart's donedata and the state's last event selection. An
-  # import starts them as a fresh start does: the clock at zero, no timer,
-  # nothing queued or held, no halt. The session id is the one the
+  # the stopped chart's donedata, the state's last event selection, and the
+  # child sessions of its live invocations, their mailbox included. A
+  # position taken with a live child carries the invocation in
+  # `active_invocations`, as the core holds it, and nothing of the child, as
+  # the reference's session rebuilds its invocation table empty on a resume.
+  # An import starts them as a fresh start does: the clock at zero, no timer,
+  # nothing queued or held, no halt, no child; a send to such an
+  # invocation's id fails with `error.communication`, and no
+  # `done.invoke.<id>` arrives for it. The session id is the one the
   # position's `_sessionid` holds, and the registered send types are the
   # processors the host passes the import.
   #

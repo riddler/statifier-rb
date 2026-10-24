@@ -20,7 +20,8 @@ module Statifier
         machine_state = machine_state(machine, position, datamodel, types, session_id)
         Driver::State.new(machine_state:, session_id:, now_ms: 0, timers: [].freeze, timer_sequence: 0,
                           external_queue: [].freeze, held_sends: {}.freeze, halted: nil, done: done(machine_state),
-                          send_types: types)
+                          send_types: types, invocations: {}.freeze, mailbox: [].freeze, invoked_as: nil,
+                          cancelled: false)
       end
 
       # The interpreter's position. The root is active whenever any state

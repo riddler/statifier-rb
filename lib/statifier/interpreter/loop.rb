@@ -31,9 +31,9 @@ module Statifier
     # `trace` set, the loop answers the reference's trace effects in its
     # order.
     #
-    # This package starts no invocation yet: the pass over live invocations
-    # before an external event's selection finds none, and answers its
-    # {Effect::Trace::FinalizeAutoforward} with none.
+    # Before an external event's selection the finalize and autoforward
+    # pass runs over the live invocations ({Invoke::Passes}); {cancel} is
+    # the specification's cancel path, which stops a running chart.
     #
     # @api private
     module Loop
@@ -72,17 +72,30 @@ module Statifier
         Handled.new(state: taken.state, effects: dequeued + taken.effects, error: nil)
       end
 
-      # The pass over live invocations (none yet), the event's selection and
+      # The finalize and autoforward pass, the event's selection and
       # the macrostep after it, with `last_selection` written.
       #
       # @return [Stepped]
       def take(state, event)
-        passes = Blocks.traced(state, Effect::Trace::FinalizeAutoforward, event:, finalized: [], forwarded: [])
+        state, passes = Invoke::Passes.finalize_autoforward(state, event)
         state, transitions, conds = Macrostep.select(state, event)
         ran = Macrostep.run_selected(state, transitions, event)
         looped = ran.then_step(Macrostep.main_event_loop(ran.state))
         Stepped.new(state: looped.state.with(last_selection: transitions.empty? ? :none : :selected),
                     effects: passes + conds + looped.effects)
+      end
+
+      # `mainEventLoop`'s cancel path: `running` cleared, then
+      # `exitInterpreter` ({Stop.exit_interpreter}), with no caller context,
+      # since a cancel has no sending caller. A stopped chart answers
+      # `:not_running`, its state unchanged.
+      #
+      # @return [Handled]
+      def cancel(state)
+        return Handled.new(state:, effects: [], error: :not_running) unless state.running
+
+        exited = Stop.exit_interpreter(state.with(running: false, caller_context: nil))
+        Handled.new(state: exited.state, effects: exited.effects, error: nil)
       end
 
       # The door back onto the internal queue: one event of `kind`

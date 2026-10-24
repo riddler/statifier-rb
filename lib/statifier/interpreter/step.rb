@@ -50,12 +50,14 @@ module Statifier
         indexes.reduce(stepped) { |acc, index| acc.then_step(depart(acc.state, index)) }
       end
 
-      # One state leaving: its `<onexit>` blocks, then out of the
+      # One state leaving: its `<onexit>` blocks, the cancel of its live
+      # invocations ({Invoke::Passes.cancel_invocations}), then out of the
       # configuration.
       #
       # @return [Stepped]
       def depart(state, index)
         left = Blocks.run_blocks(state, :onexit, index)
+        left = left.then_step(Invoke::Passes.cancel_invocations(left.state, index))
         left.with(state: left.state.with(configuration: (left.state.configuration - [index]).freeze))
       end
 

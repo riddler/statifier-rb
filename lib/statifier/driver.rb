@@ -23,12 +23,47 @@ module Statifier
   # queue through the interpreter's internal delivery
   # ({Interpreter::Loop.deliver_internal}), and the chart runs to a stable
   # configuration again; the effects of that run are acted on after the
-  # batch that sent it, as the reference defers them. A session the driver
-  # runs has no parent and starts no invocation, so `#_parent`, `#_<id>`
-  # and another session's address reach nothing: the core refuses such an
-  # immediate send itself (the driver declares the routes it can reach when
-  # the chart starts), and a delayed one fails when its timer fires, with
-  # `error.communication` on the internal queue.
+  # batch that sent it, as the reference defers them. `#_parent` from an
+  # invoked child, and `#_<invokeid>` naming a live invocation, deliver as
+  # external events (below). Another session's address, a parent a session
+  # does not have and an invocation that is not live reach nothing: the core
+  # refuses such an immediate send itself (the driver declares the routes a
+  # session can reach, its own id, whether it has a parent and the ids of
+  # its live invocations, when it starts, when an event reaches it from
+  # outside, when a timer fires in it and before an internal delivery), a
+  # send the declaration reaches that names nothing live by the time it is
+  # routed fails here, and a delayed one is judged when its timer fires,
+  # each with `error.communication` on the internal queue.
+  #
+  # Invocations, as the reference's session and its built-in `scxml`
+  # handler run them (`Statifier.Session`, `Statifier.Session.Invocations`
+  # and `Statifier.Invoke.Source` in statifier-ex), with one tree of
+  # session states in place of processes. An {Effect::Invoke} of the SCXML
+  # type whose content is markup compiles it, with the namespace relaxed as
+  # inline content is placed, and starts it as a child session, its session
+  # id its parent's, a dot and the invoke id, its datamodel seeded with the
+  # params a root `<data>` of the child names, the rest dropped. A content
+  # that is not markup, or does not compile, and an invocation with no
+  # content (`src` is never fetched) raise `error.communication` and record
+  # nothing; any other type raises `error.execution`. A child is stepped by
+  # this driver on its parent's virtual clock: starting it, an event sent to
+  # it and an autoforwarded event each run it to a stable configuration at
+  # once, and its timers fire with its parent's, in due-then-scheduled order
+  # across the tree. A child inherits its parent's registered send types
+  # (its processors are the call's, handed the child's own session id) and
+  # its trace flag, and every effect its runs answer is among the call's
+  # effects, in the order made, as an {Effect::Child} naming its session id.
+  #
+  # What a child sends its parent - an event to `#_parent`, stamped with the
+  # invoke id; a notice that it reached a top-level final, ahead of the
+  # batch that stops it; and its `done.invoke.<id>` with its donedata -
+  # waits in the parent's mailbox, taken one entry at a time once the
+  # parent's external queue is empty. An entry whose invocation is no longer
+  # live is discarded; the done event retires its invocation once taken. An
+  # {Effect::CancelInvoke} retires the invocation and stops its child,
+  # running its `<onexit>` handlers, unless the child already said it
+  # completed; a cancelled child returns no done event. An
+  # {Effect::Autoforward} delivers the event, unchanged, to a live child.
   #
   # The virtual clock. A delayed send of a built-in type becomes a pending
   # timer due at the clock's time plus its delay. {Statifier.advance} moves
@@ -65,8 +100,25 @@ module Statifier
     # @api private
     State = ::Data.define(
       :machine_state, :session_id, :now_ms, :timers, :timer_sequence, :external_queue, :held_sends, :halted,
-      :done, :send_types
+      :done, :send_types, :invocations, :mailbox, :invoked_as, :cancelled
     )
+
+    # A live invocation of a child session, as the parent holds it: its
+    # `invoke_id`; `autoforward`; `completed`, set once the child said it
+    # reached a top-level final; `caller_context`, the {Effect::Invoke}'s,
+    # which its done event carries; and `child`, the child's {State}, whose
+    # `now_ms` and `timer_sequence` are its parent's as they stood when the
+    # child last ran.
+    #
+    # @api private
+    Invocation = ::Data.define(:invoke_id, :autoforward, :completed, :caller_context, :child)
+
+    # What a child sent its parent and the parent has not taken: `kind`
+    # `:completed` (no `payload`), `:event` (the {Event}) or `:done` (the
+    # child's donedata), and the `invoke_id` it came from.
+    #
+    # @api private
+    Mail = ::Data.define(:kind, :invoke_id, :payload)
 
     # A delayed send waiting on the virtual clock: its send id, the virtual
     # time it is due at, the order it was scheduled in, and the
@@ -81,7 +133,8 @@ module Statifier
     #   @return [State] the chart's execution after the call
     # @!attribute [r] effects
     #   @return [Array] every effect the call's runs answered, in the order
-    #     they were made, a frozen list of {Statifier::Effect} values
+    #     they were made, a frozen list of {Statifier::Effect} values, an
+    #     invoked child's each wrapped in an {Effect::Child}
     Moved = ::Data.define(:state, :effects)
 
     # What {Statifier.done?} answers as its result's `value`.
@@ -117,4 +170,6 @@ require_relative "driver/session_id"
 require_relative "driver/work"
 require_relative "driver/routing"
 require_relative "driver/checks"
+require_relative "driver/invocations"
+require_relative "driver/mailbox"
 require_relative "driver/calls"
