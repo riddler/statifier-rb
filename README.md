@@ -320,12 +320,75 @@ it into a fresh compile and drives the remaining steps, requiring the imported
 execution to agree with the unbroken one at every later step
 (`test/conformance/position_property.rb`).
 
+## The HTTP transport
+
+The HTTP side of the gem is opt-in: `require "statifier/basichttp"` loads it,
+and `require "statifier"` alone loads none of it and no HTTP library. What it
+holds today is the HTTP transport, the seam between the Basic HTTP Event I/O
+Processor of SCXML appendix C.2 and whatever makes a request.
+
+A transport is anything that responds to `call`: a lambda, a method object or
+an object. It takes one request and makes it, and either answers the response
+that came back or raises the transport error:
+
+- **The request**, `Statifier::BasicHTTP::Request`, a frozen value with
+  `http_method` (an HTTP token such as `"POST"`), `url` (an absolute URL),
+  `headers` (name and value pairs, in order, a name allowed more than once)
+  and `body` (a String, already encoded, empty for none). Building one copies
+  the strings it is given and refuses a method or header name that is not an
+  HTTP token and a header value holding a carriage return, a line feed or a
+  NUL.
+- **The response**, `Statifier::BasicHTTP::Response`, a frozen value with
+  `status` (an Integer from 100 to 599), `headers` (name and value pairs) and
+  `body` (a String, empty for none). Every status is a response: a status
+  outside 2xx is answered, not raised.
+- **The error**, `Statifier::BasicHTTP::TransportError`, the one error a
+  transport raises when no response came back: a URL it cannot request, a
+  connection refused or failed, a time bound passed, an exchange broken off.
+  The error that caused it, when there was one, is its `cause`.
+
+A transport makes one attempt; retrying is not its job.
+
+The default transport, `Statifier::BasicHTTP::NetHTTPTransport`, uses
+Net::HTTP from the standard library (the `net-http` default gem), so it adds
+no runtime dependency. Each call opens a connection of its own, verifies an
+`https` peer as Net::HTTP does by default, and bounds each of opening the
+connection, writing the request and reading the response by `timeout:`
+seconds, five when absent. A host that needs other Net::HTTP settings (a
+proxy, a certificate file) passes `connect:`, a callable that answers the
+connection for a URL; `NetHTTPTransport.connection(uri, timeout:)` is the
+default one, for a host's own to start from.
+
+```ruby
+require "statifier/basichttp"
+
+request = Statifier::BasicHTTP::Request.new(
+  http_method: "POST",
+  url: "http://localhost:8080/s1",
+  headers: [["content-type", "text/plain"]],
+  body: "e.go"
+)
+
+# A host's own transport, here one that answers every request in memory
+echo = ->(req) { Statifier::BasicHTTP::Response.new(status: 200, body: req.body) }
+echo.call(request).body # => "e.go"
+
+# The default transport
+transport = Statifier::BasicHTTP::NetHTTPTransport.new(timeout: 2)
+begin
+  transport.call(request).status
+rescue Statifier::BasicHTTP::TransportError => e
+  e.message # why no response came back
+end
+```
+
 ## Compatibility
 
 - **Ruby 3.3 and later.** `required_ruby_version` in the gemspec is
   `>= 3.3`, and CI runs the test suite on Ruby 3.3, 3.4 and 4.0.
 - **One runtime dependency**, `predicator` (`>= 2.0`, `< 3`). The XML front
-  end is hand-written, so no XML gem is needed.
+  end is hand-written, so no XML gem is needed, and the default HTTP
+  transport uses Net::HTTP, a default gem.
 - **No shared mutable state.** The machine and the state are immutable
   values, there is no global configuration, and nothing is kept between calls
   but the state a call answers. Processors and the clock are passed with each
@@ -368,7 +431,9 @@ needs and whether it passes or why it fails.
   - Every public method and class carries a YARD doc comment in `lib/`:
     the `Statifier` module's eight calls and `Statifier::Result`, the driver's
     values (`Statifier::Driver::Moved` and `DoneStatus`), `Statifier::Effect`,
-    `Statifier::Event` and `Statifier::Position`.
+    `Statifier::Event` and `Statifier::Position`, and the HTTP transport's
+    request, response, error and default transport under
+    `Statifier::BasicHTTP`.
   - [The changelog](CHANGELOG.md): what changed in each version.
   - [The conformance apparatus](conformance/README.md): what is vendored, from
     where, and how the check, the runner and the ratchet work.

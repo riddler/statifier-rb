@@ -233,6 +233,12 @@ as `Statifier::Effect::Child` values.
 chart accepts with the event descriptors the chart listens for and answers
 a `Statifier::AcceptsCheck` directly: the declared names no descriptor
 matches and the descriptors no declared name matches.
+The HTTP transport, `Statifier::BasicHTTP` under `lib/statifier/basichttp/`
+(loaded only by `require "statifier/basichttp"`, never by the core), is the
+seam the Basic HTTP processor makes requests through: a callable taking a
+frozen `Request` and answering a frozen `Response` or raising
+`TransportError`, with `NetHTTPTransport` on the standard library's
+Net::HTTP as the default.
 The conformance runner drives every case through the driver;
 the registry holds the scion, w3c and statifier cases the runner passes
 (the claims `scion`, `statifier`, `w3c-mandatory` and `w3c-optional`), and
