@@ -18,7 +18,8 @@ require_relative "statifier/position"
 # compiler ({Statifier::Compiler}), all internal. The driver
 # ({Statifier::Driver}) steps a machine: {Statifier.start} starts a chart,
 # {Statifier.step} sends it an event, {Statifier.advance} moves its virtual
-# clock, and {Statifier.configuration} and {Statifier.done?} read it.
+# clock, {Statifier.report_send_failed} tells it a send failed, and
+# {Statifier.configuration} and {Statifier.done?} read it.
 # {Statifier.export_position} writes a chart's execution out as plain data a
 # host can keep, and {Statifier.import_position} reads it back in. The
 # interpreter under the driver ({Statifier::Interpreter}) is internal.
@@ -183,6 +184,44 @@ module Statifier
   #   chart was started with
   def self.advance(state, milliseconds, processors: {}, clock: nil)
     Driver::Calls.advance(state, milliseconds, processors:, clock:)
+  end
+
+  # Reports a send the host was handed and could not deliver:
+  # `error.communication` joins the chart's internal queue, its origin the
+  # send's content and its `sendid` the send's id whether or not its author
+  # named it, and the chart runs to a stable configuration, then takes
+  # whatever its external queue holds, as {step} does. The driver keeps no
+  # table of the sends it handed, so the report is not checked against one:
+  # it reaches the session `state` is for. A failure a processor knows of
+  # while it is handed the send is answered from its `deliver` as a
+  # {Driver::DeliveryFailure} instead, and fails the send within that call.
+  #
+  # Once the chart has stopped, or while a macrostep's round budget has
+  # halted it, the report is refused and nothing is written, as the
+  # reference's session drops it; the miss is then the host's to record.
+  #
+  # @example
+  #   failed = Statifier.report_send_failed(machine, moved.state, send, processors:)
+  #   failed.value.state # the chart after it took error.communication
+  #
+  # @param machine [Machine] the compiled chart `state` is an execution of
+  # @param state [Driver::State] what the last call answered
+  # @param send [Effect::Send, Effect::SendDelayed] the send the host's
+  #   processor was handed
+  # @param options [Hash] the keywords below, each optional
+  # @option options [Object, nil] :reason the host's own account of the
+  #   failure; not read, and the chart is not handed it
+  # @option options [Hash{String => #deliver}] :processors as {start} took
+  #   them
+  # @option options [#call, nil] :clock as {start} took it
+  # @return [Result] a {Driver::Moved}, or the error `:not_running` once the
+  #   chart has stopped, or `:halted` while a round budget has halted it
+  # @raise [TypeError] for a machine, a state or a send of the wrong kind
+  # @raise [ArgumentError] for an option it does not name, a state that is
+  #   not an execution of `machine`, or processors that name other types
+  #   than the chart was started with
+  def self.report_send_failed(machine, state, send, **options)
+    Driver::Calls.report_send_failed(machine, state, send, options)
   end
 
   # The active states, by id, the `<scxml>` root left out, sorted; a state

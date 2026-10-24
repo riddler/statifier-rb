@@ -26,6 +26,16 @@ module Conformance
   # disagrees. An expected item with no `outcome` claims nothing about a
   # cancel.
   #
+  # A send whose expected item, at the position it was handed in, carries
+  # `"outcome": "fail"` is marked so and reported failed through
+  # {Statifier.report_send_failed} once the driver call that handed it
+  # returns, before the drive reads the configuration (the harness's
+  # `perform_outcome/4`, which reports through
+  # `Statifier.Session.failed_send/3` as soon as it reads the processor's
+  # message). A report the driver refuses because the chart has stopped, or
+  # because a round budget has halted it, is dropped, as the reference's
+  # session drops it.
+  #
   # It is a fresh object for every case: it is the host's, so it keeps
   # what it was handed between the driver's calls.
   class Host
@@ -41,14 +51,8 @@ module Conformance
       new(host.fetch("send_types", []), host.fetch("expect_sends", []))
     end
 
-    # The reason a case asks for an outcome this host does not perform, or
-    # nil: an expected send whose outcome asks the host to report it failed.
-    def self.unreported(item)
-      expected = item.fetch("host", {}).fetch("expect_sends", [])
-      return unless expected.any? { _1.is_a?(Hash) && _1["outcome"] == "fail" }
-
-      "an expected send asks the host to report it failed, which this runner does not report yet"
-    end
+    # The refusals of a failed-send report that drop it.
+    DROPPED = %i[not_running halted].freeze
 
     # A host registered under `send_types`, comparing what it is handed with
     # `expected`.
@@ -56,6 +60,7 @@ module Conformance
       @send_types = send_types
       @expected = expected
       @handed = []
+      @failed = []
     end
 
     # The processors to register: this host under each of its send types.
@@ -75,8 +80,29 @@ module Conformance
     # The driver hands a send of a registered type here, with the event a
     # delivery would carry.
     def deliver(send, event, _context)
-      @handed << Handed.new(send_id: send.send_id, expected: @expected[@handed.size], item: Host.item(send, event))
+      expected = @expected[@handed.size]
+      item = Host.item(send, event)
+      if fail?(expected)
+        item["outcome"] = "fail"
+        @failed << send
+      end
+      @handed << Handed.new(send_id: send.send_id, expected:, item:)
       nil
+    end
+
+    # `state` after every send marked failed since the last report is
+    # reported through the driver over `machine`, in the order handed, a
+    # send handed by a report reported in turn; a refusal DROPPED names is
+    # dropped and any other raises.
+    def report(machine, state, processors)
+      until @failed.empty?
+        result = Statifier.report_send_failed(machine, state, @failed.shift, processors:)
+        next state = result.value.state if result.ok?
+        next if DROPPED.include?(result.error)
+
+        raise "the driver refused the failed-send report: #{result.error.inspect}"
+      end
+      state
     end
 
     # The driver tells the processor holding a delayed send of its
@@ -107,6 +133,9 @@ module Conformance
     end
 
     private
+
+    # Whether an expected item asks the host to report its send failed.
+    def fail?(expected) = expected.is_a?(Hash) && expected["outcome"] == "fail"
 
     # Whether a handed send is a delayed one its expected item marks as
     # cancelled.

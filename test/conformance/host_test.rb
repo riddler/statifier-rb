@@ -89,14 +89,54 @@ class HostTest < Minitest::Test
     assert_equal :pass, drive(CANCELLED, [LATER])
   end
 
-  # sabotage: answer nil from Host.unreported; the
-  # assert_equal on the reason fails (the case is then driven and its sends
-  # disagree).
-  def test_an_expected_send_to_report_failed_is_refused_naming_it
-    failed = IMMEDIATE.merge("outcome" => "fail")
+  # A send its expected item marks failed, under the id `n`, on entering
+  # `a`: the chart moves to `c` when the error names the send, else to `d`.
+  REPORTED = <<~XML
+    <state id="a">
+      <onentry><send type="test:sink" target="t" event="x" id="n"/></onentry>
+      <transition event="error.communication" cond="_event.sendid == 'n'" target="c"/>
+      <transition event="error.communication" target="d"/>
+      <transition event="e.go" target="b"/>
+    </state>
+    <state id="b"/>
+    <state id="c"><transition event="e.go" target="b"/></state>
+    <state id="d"/>
+  XML
 
-    assert_equal "an expected send asks the host to report it failed, which this runner does not report yet",
-                 drive(SENDS, [failed, DELAYED])
+  NAMED = { "type" => "test:sink", "target" => "t", "event" => { "name" => "x" }, "send_id" => "n" }.freeze
+
+  def reported_case(expected, initial)
+    host_case(REPORTED, expected).merge("initial_configuration" => initial)
+  end
+
+  # sabotage: report nothing (answer `state` at once from Host#report); the
+  # first assert_equal fails (the chart stays in a, unreported).
+  # sabotage: mark no item failed in Host#deliver (drop the `outcome`
+  # write); the first assert_equal fails (the handed item then disagrees).
+  def test_a_send_marked_failed_is_reported_before_the_configuration_is_read
+    failed = NAMED.merge("outcome" => "fail")
+
+    assert_equal :pass, Conformance::Drive.call(reported_case([failed], %w[c]))
+    assert_equal "the initial configuration: expected active leaf states [\"a\"], got [\"c\"]",
+                 Conformance::Drive.call(reported_case([failed], %w[a]))
+    assert_equal :pass, Conformance::Drive.call(reported_case([NAMED], %w[a]))
+  end
+
+  # sabotage: raise on every refusal in Host#report (drop the DROPPED
+  # check); the assert_equal fails (the report to the stopped chart raises,
+  # and the reason is that refusal).
+  def test_a_report_to_a_stopped_chart_is_dropped
+    body = %(<state id="a"><transition event="e.go" target="f"><send type="test:sink" target="t" event="x"/>) +
+           %(</transition></state><final id="f"/>)
+    expected = [{ "type" => "test:sink", "target" => "t", "event" => { "name" => "x" }, "outcome" => "fail" }]
+
+    answer = begin
+      drive(body, expected, steps: [%w[f]])
+    rescue RuntimeError => e
+      e.message
+    end
+
+    assert_equal :pass, answer
   end
 
   # sabotage: send UNDEFINED as every step's data in Drive.drive_step; the

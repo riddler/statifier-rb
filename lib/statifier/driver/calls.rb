@@ -3,9 +3,9 @@
 module Statifier
   module Driver
     # The bodies of the driver's calls, which {Statifier.start},
-    # {Statifier.step}, {Statifier.advance}, {Statifier.configuration} and
-    # {Statifier.done?} answer through, and the checks on what a host
-    # passes them.
+    # {Statifier.step}, {Statifier.advance}, {Statifier.report_send_failed},
+    # {Statifier.configuration} and {Statifier.done?} answer through, and
+    # the checks on what a host passes them.
     #
     # @api private
     module Calls
@@ -47,6 +47,24 @@ module Statifier
         return refused(:not_running) unless state.machine_state.running
 
         ok(Run.drain(Routing.enqueue(work, Event.external(name, data:), counted: false).stamped).moved)
+      end
+
+      # {Statifier.report_send_failed}'s body: the failed send's
+      # `error.communication` delivered onto the internal queue and the chart
+      # run to a stable configuration, then the external queue taken, as a
+      # step takes it. Refused once the chart has stopped, and while a
+      # macrostep's round budget has halted it, as the reference's session
+      # drops a report then.
+      #
+      # @return [Result]
+      def report_send_failed(machine, state, send, options)
+        processors, clock = Checks.report(machine, state, send, options).values_at(:processors, :clock)
+        work = Run.begin_call(Checks.state(state, processors), processors, clock)
+        return refused(:not_running) unless state.machine_state.running
+        return refused(:halted) unless state.halted.nil?
+
+        work, deferred = Delivery.failed(work.stamped, send)
+        ok(Run.drain(Run.perform(work, deferred)).moved)
       end
 
       # {Statifier.advance}'s body: the clock moved `milliseconds` forward, every

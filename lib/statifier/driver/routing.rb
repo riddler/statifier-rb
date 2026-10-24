@@ -4,9 +4,9 @@ module Statifier
   module Driver
     # Where each `<send>` the core answers goes, as the reference's planner
     # (`Statifier.Session.Effects`) and its session's `deliver/5` route it:
-    # to a host's processor, onto the external queue, onto the internal
-    # queue through the interpreter's internal delivery, onto a pending
-    # timer, or nowhere, with `error.communication`. Each function answers
+    # to a host's processor ({Delivery}), onto the external queue, onto the
+    # internal queue through the interpreter's internal delivery, onto a
+    # pending timer, or nowhere, with `error.communication`. Each function answers
     # `[work, deferred effects]`, or the work alone where nothing is
     # deferred.
     #
@@ -16,7 +16,7 @@ module Statifier
 
       # An immediate send: handed to its processor, or routed now.
       def send_now(work, send)
-        return hand_off(work, send) if registered?(work, send)
+        return Delivery.hand_off(work, send) if registered?(work, send)
 
         route(work, send, undelayed: true)
       end
@@ -24,7 +24,7 @@ module Statifier
       # A delayed send: handed to its processor, which holds it, or a
       # pending timer due its delay from now.
       def send_later(work, send)
-        return hand_off(work, send) if registered?(work, send)
+        return Delivery.hand_off(work, send) if registered?(work, send)
 
         [schedule(work, send), []]
       end
@@ -40,21 +40,6 @@ module Statifier
       # Whether the send's type is one the host registered.
       def registered?(work, send)
         Interpreter::Targets.classify(work.machine_state.sends.send_types, send.type) == :registered
-      end
-
-      # A registered type's send handed to its processor with the event a
-      # delivery would carry; a delayed one is held under its send id, so a
-      # `<cancel>` of that id reaches the processor.
-      def hand_off(work, send)
-        work = hold(work, send) if send.is_a?(Effect::SendDelayed)
-        work.processors.fetch(send.type).deliver(send, delivered_event(send, work.state.session_id), work.context)
-        [work, []]
-      end
-
-      # The work with the send's type holding a delayed send under its id.
-      def hold(work, send)
-        types = (work.state.held_sends.fetch(send.send_id, []) | [send.type]).sort.freeze
-        work.with_state(held_sends: work.state.held_sends.merge(send.send_id => types).freeze)
       end
 
       # A `<cancel>`: every pending timer under its id goes, and each
@@ -124,8 +109,14 @@ module Statifier
       # and the session halts.
       def internal(work, send, undelayed)
         deliver = ->(acc) { deliver_internal(acc, :internal, name(send), origin(send), fields(send, send.data)) }
-        return deliver.call(work) unless undelayed
+        undelayed ? counted(work, &deliver) : deliver.call(work)
+      end
 
+      # A delivery onto the internal queue counted against this call's
+      # budget with the undelayed sends made there: made by `deliver` within
+      # the budget, and past it made with the chart not run and the session
+      # halted.
+      def counted(work, &deliver)
         work = work.with(sent_internal: work.sent_internal + 1)
         work.within?(work.sent_internal) ? deliver.call(work) : past_budget(work, deliver)
       end
@@ -146,8 +137,8 @@ module Statifier
       # A send to something the driver cannot reach: `error.communication`
       # on the internal queue, carrying the send id the delivered event
       # would have.
-      def communication_error(work, send)
-        deliver_internal(work, :platform, "error.communication", origin(send), fields(send, Predicator::UNDEFINED))
+      def communication_error(work, send, sendid: author_id(send))
+        deliver_internal(work, :platform, "error.communication", origin(send), { data: Predicator::UNDEFINED, sendid: })
       end
 
       # The interpreter's internal delivery: the event joins the internal

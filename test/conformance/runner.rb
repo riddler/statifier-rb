@@ -5,6 +5,27 @@ require_relative "host"
 require_relative "../../lib/statifier"
 
 module Conformance
+  # The driver's calls as a drive makes them: with the processors the
+  # drive registers, and, with a host, each answered state handed to the
+  # host to report the sends the call handed that it marked failed
+  # (Host#report), before anything reads it.
+  Calls = ::Data.define(:machine, :processors, :host) do
+    # The calls with no processor and no host.
+    def self.plain = new(machine: nil, processors: {}, host: nil)
+
+    def start(session_id) = after(Statifier.start(machine, session_id:, processors:))
+
+    def step(state, name, data) = after(Statifier.step(state, name, data:, processors:))
+
+    def advance(state, milliseconds) = after(Statifier.advance(state, milliseconds, processors:))
+
+    # The state a call answered, the host's reports made.
+    def after(result)
+      state = Drive.moved(result)
+      host.nil? ? state : host.report(machine, state, processors)
+    end
+  end
+
   # THE SEAM: what the run does with one case. It is the one place the
   # library is plugged into the run; the runner, the registry check and the
   # ratchet all reach the library through Drive.call and nothing else.
@@ -64,9 +85,12 @@ module Conformance
   # the sends handed to it over the whole drive, in order and each with its
   # outcome, must be exactly `expect_sends`. A step of a case with a host
   # object sends its event's `data`, when it gives one, as the harness
-  # injects it. An expected send whose outcome asks the host to report it
-  # failed (`"outcome": "fail"`) asks for what this runner does not report
-  # yet, and fails the case with that named.
+  # injects it. A send whose expected item asks the host to report it
+  # failed (`"outcome": "fail"`) is reported through
+  # {Statifier.report_send_failed} once each driver call that handed it
+  # returns, before the configuration is read, as the harness reports it
+  # through `Statifier.Session.failed_send/3` before it reads the next
+  # configuration (`pump/3` in host_case.ex).
   #
   # Any other host key (the statifier suite's `declared_events`,
   # `expect_accepts`, `to_source`, `expect_diff`, `mapping` and
@@ -106,19 +130,19 @@ module Conformance
         unless compiled.ok?
 
       host = Host.for(item)
-      driven = drive(item, compiled.value, host.processors.merge(registered(item, provided)))
+      driven = drive(item, compiled.value, host.processors.merge(registered(item, provided)), host)
       driven == :pass ? host.verdict : driven
     end
 
     # What the case asks of its host that this runner does not honour, or
     # nil: a host key it does not read, a processor `provided` holds no
-    # entry for, an expected send to report failed, or an exported position.
+    # entry for, or an exported position.
     def self.unhonoured(item, provided = PROVIDED)
       host = item.fetch("host", {})
       other = host.keys - HONOURED_HOST_KEYS
       return "the case's host object (#{other.join(", ")}) is not honoured here" unless other.empty?
 
-      not_provided(host, provided) || Host.unreported(item) || position(item)
+      not_provided(host, provided) || position(item)
     end
 
     # The processors the host object names that `provided` holds no entry
@@ -152,15 +176,16 @@ module Conformance
     end
 
     # The start and every step, compared in turn; processors go with every
-    # call, as the driver asks.
-    def self.drive(item, machine, processors = {})
-      state = moved(Statifier.start(machine, session_id: item.fetch("id"), processors:))
-      state = await(state, item.fetch("initial_configuration"), 0, processors)
+    # call, as the driver asks, and a host reports its failed sends after
+    # each.
+    def self.drive(item, machine, processors = {}, host = nil)
+      calls = Calls.new(machine:, processors:, host:)
+      state = await(calls.start(item.fetch("id")), item.fetch("initial_configuration"), 0, calls)
       failed = compare(state, item.fetch("initial_configuration"), "the initial configuration")
       return failed if failed
 
       item.fetch("steps").each_with_index do |step, index|
-        state, failed = drive_step(state, step, index, processors, host: item.key?("host"))
+        state, failed = drive_step(state, step, index, calls, host: item.key?("host"))
         return failed if failed
       end
       :pass
@@ -170,14 +195,13 @@ module Conformance
     # and compared. `[state, reason]`, the reason nil when it agrees. A step
     # of a case with a host object (`host`) sends its event's `data` when it
     # gives one; any other sends the name alone.
-    def self.drive_step(state, step, index, processors = {}, host: false)
-      state = settle(state, processors)
+    def self.drive_step(state, step, index, calls = Calls.plain, host: false)
+      state = settle(state, calls)
       since = state.now_ms
       event = step.fetch("event")
       name = event.fetch("name")
       data = host ? event.fetch("data", Predicator::UNDEFINED) : Predicator::UNDEFINED
-      state = await(moved(Statifier.step(state, name, data:, processors:)), step.fetch("configuration"), since,
-                    processors)
+      state = await(calls.step(state, name, data), step.fetch("configuration"), since, calls)
       [state, compare(state, step.fetch("configuration"), "step #{index + 1} (event #{name.inspect})")]
     end
 
@@ -199,19 +223,19 @@ module Conformance
     end
 
     # The settle window.
-    def self.settle(state, processors = {})
+    def self.settle(state, calls = Calls.plain)
       window_end = state.now_ms + SETTLE_WINDOW_MS
       loop do
         due = earliest_due(state)
         return state if due.nil?
-        return moved(Statifier.advance(state, window_end - state.now_ms, processors:)) if due > window_end
+        return calls.advance(state, window_end - state.now_ms) if due > window_end
 
-        state = moved(Statifier.advance(state, due - state.now_ms, processors:))
+        state = calls.advance(state, due - state.now_ms)
       end
     end
 
     # The configuration deadline after `since`.
-    def self.await(state, expected, since, processors = {})
+    def self.await(state, expected, since, calls = Calls.plain)
       deadline = since + CONFIGURATION_DEADLINE_MS
       loop do
         return state if leaves(state) == expected.sort || !state.done.nil?
@@ -219,7 +243,7 @@ module Conformance
         due = earliest_due(state)
         return state if due.nil? || due > deadline
 
-        state = moved(Statifier.advance(state, due - state.now_ms, processors:))
+        state = calls.advance(state, due - state.now_ms)
       end
     end
 
