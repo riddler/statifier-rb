@@ -104,8 +104,12 @@ order and each with its outcome, must be exactly `expect_sends`. A
 `<cancel>` that reaches the host marks the delayed send it names
 `"outcome": "cancelled"` when the expected item at that send's position
 asks for it, and a step of a case with a host object sends its event's
-`data`, when it gives one. An expected send that asks the host to report it
-failed (`"outcome": "fail"`), any other host key (the accepts check's
+`data`, when it gives one. A send whose expected item asks the host to
+report it failed (`"outcome": "fail"`) is marked so and reported through
+`Statifier.report_send_failed` once the driver call that handed it returns,
+before the configuration is read, as the reference's harness reports it
+before it reads the next configuration; a report the driver refuses because
+the chart has stopped is dropped. Any other host key (the accepts check's
 `declared_events` and `expect_accepts`, the diff pair's `to_source`,
 `expect_diff`, `mapping` and `expect_compatible_at`), and a step stating an
 exported position each fail the case naming what it asks for. This

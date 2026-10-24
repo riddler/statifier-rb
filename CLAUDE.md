@@ -208,11 +208,16 @@ events on its queues are one value, `Statifier::Event`.
 Over the loop is the in-memory driver, `Statifier::Driver` under
 `lib/statifier/driver/`, the public surface a host steps a chart with:
 `Statifier.start`, `Statifier.step`, `Statifier.advance`,
-`Statifier.configuration` and `Statifier.done?`, each answering a result
+`Statifier.report_send_failed`, `Statifier.configuration` and
+`Statifier.done?`, each answering a result
 like the compile's. It keeps the external queue and the pending timers on a
 virtual clock in its state, an immutable value, routes every send the core
 answers (a send to `#_internal` through the loop's internal delivery), and
 hands a send of a registered type to the host's processor, passed per call.
+A send the processor cannot deliver comes back to the chart as
+`error.communication`: answered from its `deliver` as a
+`Statifier::Driver::DeliveryFailure`, or reported later through
+`Statifier.report_send_failed`.
 The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
 are public with it. Beside it, `Statifier.export_position` and
 `Statifier.import_position` (the bodies in `Statifier::Position`,

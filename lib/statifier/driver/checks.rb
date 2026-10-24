@@ -23,10 +23,7 @@ module Statifier
       #   or a round budget that is neither a positive Integer nor
       #   `:infinity`
       def start_options(options)
-        unknown = options.keys - START_OPTIONS.keys
-        raise ArgumentError, "unknown options: #{unknown.inspect}" unless unknown.empty?
-
-        options = START_OPTIONS.merge(options)
+        options = known(options, START_OPTIONS)
         budget(options[:max_macrostep_rounds])
         options.merge(types: registered_types(options[:processors]), session_id: session_id(options[:session_id]))
       end
@@ -56,6 +53,38 @@ module Statifier
         return state if processors.nil? || registered_types(processors) == state.send_types
 
         raise ArgumentError, "processors must register the types the chart started with: #{state.send_types}"
+      end
+
+      # The options {Statifier.report_send_failed} takes, as they stand when
+      # the host names none.
+      REPORT_OPTIONS = { reason: nil, processors: {}.freeze, clock: nil }.freeze
+
+      # A failed-send report's options, after checking them and the chart and
+      # the send it names against `state`.
+      #
+      # @raise [TypeError] when `state` is not a driver state, `machine` is
+      #   not a compiled machine or `send` is not a send a processor is handed
+      # @raise [ArgumentError] for an option {REPORT_OPTIONS} does not name, or
+      #   when `state` is not an execution of `machine`
+      def report(machine, state, send, options)
+        options = known(options, REPORT_OPTIONS)
+        raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
+        raise TypeError, "expected a Statifier::Effect::Send or SendDelayed, got #{send.class}" \
+          unless send.is_a?(Effect::Send) || send.is_a?(Effect::SendDelayed)
+        return options if state(state, nil).machine_state.machine == machine
+
+        raise ArgumentError, "the state is not an execution of the machine named"
+      end
+
+      # `options` over `defaults`, after checking that `defaults` names
+      # every one.
+      #
+      # @raise [ArgumentError] for an option `defaults` does not name
+      def known(options, defaults)
+        unknown = options.keys - defaults.keys
+        raise ArgumentError, "unknown options: #{unknown.inspect}" unless unknown.empty?
+
+        defaults.merge(options)
       end
 
       # The session id the host named, or a fresh one, frozen: a host's

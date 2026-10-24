@@ -96,7 +96,7 @@ Statifier.done?(stopped.value.state).value.configuration # => ["c"]
 
 ## The driver surface
 
-Eight calls make up the public surface. Each answers a `Statifier::Result`,
+Nine calls make up the public surface. Each answers a `Statifier::Result`,
 which has `ok?`, `value` and `error`. A successful result has `error == nil`
 and a failed one has `value == nil`; read `ok?` and not the value.
 
@@ -106,6 +106,7 @@ and a failed one has `value == nil`; read `ok?` and not the value.
 | `Statifier.start(machine, **options)` | a `Statifier::Driver::Moved`: the `state` and the `effects` of starting the chart |
 | `Statifier.step(state, name, data:, processors:, clock:)` | a `Moved`, after one external event and every event the chart queues for itself; `:not_running` once the chart has stopped |
 | `Statifier.advance(state, milliseconds, processors:, clock:)` | a `Moved`, after the virtual clock moves and every timer due fires, earliest first; `:invalid_duration` for a negative, infinite or non-numeric duration |
+| `Statifier.report_send_failed(machine, state, send, **options)` | a `Moved`, after the chart takes `error.communication` for a send the host could not deliver; `:not_running` once the chart has stopped, `:halted` while a round budget has halted it |
 | `Statifier.configuration(state)` | the active state ids, sorted, as a frozen list |
 | `Statifier.done?(state)` | a `Statifier::Driver::DoneStatus`: `done`, and once the chart has stopped its `donedata` and `configuration` |
 | `Statifier.export_position(state)` | the position, plain data ready for JSON, or a `Statifier::Position::Refusal` |
@@ -222,6 +223,24 @@ outbox.seen # => [["t1", "e.out", "s1"]]
 sent.value.effects.map { |effect| effect.class.name.split("::").last } # => ["Send"]
 ```
 
+A send a processor cannot deliver comes back to the chart as
+`error.communication`, its `sendid` the send's id whether or not the author
+named it. A processor that knows while it is handed the send answers
+`Statifier::Driver::DeliveryFailure.new(reason: ...)` from `deliver`, and the
+chart takes the error within that call. A host that learns of the miss later
+reports it with the send it was handed; the reason is the host's own and the
+chart is not handed it:
+
+```ruby
+failed = Statifier.report_send_failed(notify, sent.value.state, sent.value.effects.first,
+                                      reason: "unreachable", processors:)
+failed.ok? # => true
+```
+
+Once the chart has stopped the report is refused with `:not_running`, and while
+a round budget has halted it with `:halted`; nothing is written, and the miss is
+the host's to record.
+
 An `<invoke>` of the SCXML type runs in process: the driver compiles the
 `<content>` markup and starts it as a child session on the parent's virtual
 clock, its session id the parent's, a dot and the invoke id. `src` is never
@@ -299,11 +318,11 @@ claims to pass, and the gate fails if one of them does not.
 | Claim | Cases claimed | Of |
 |---|---|---|
 | `scion` | 119 | 119 cases in the scion suite |
-| `statifier` | 20 | 36 cases in the statifier suite |
+| `statifier` | 21 | 36 cases in the statifier suite |
 | `w3c-mandatory` | 152 | 154 mandatory cases in the w3c suite |
 | `w3c-optional` | 2 | 14 optional cases in the w3c suite |
 
-The registry holds 293 entries, which is the sum of the four rows. A claim is
+The registry holds 294 entries, which is the sum of the four rows. A claim is
 the set of its entries, not a statement that every case of its suite passes.
 
 What is not claimed yet:
@@ -312,11 +331,10 @@ What is not claimed yet:
   the reference's registry does not claim them either.
 - Twelve optional w3c cases whose host needs the Basic HTTP Event I/O
   Processor, which this package does not provide.
-- Sixteen cases of the `statifier` suite, the reference's own: the ten diff
+- Fifteen cases of the `statifier` suite, the reference's own: the ten diff
   cases and the accepts case, whose host keys the conformance runner does not
-  read yet; the four cases that state an exported position, which it does not
-  compare yet; and the one case that asks the host to report a send failed,
-  which it does not report yet.
+  read yet; and the four cases that state an exported position, which it does
+  not compare yet.
 
 Running the gate prints the gap list: every unclaimed case with the features it
 needs and whether it passes or why it fails.

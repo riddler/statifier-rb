@@ -81,7 +81,20 @@ module Statifier
   # processor's `deliver` with the event a delivery would carry and a
   # {Context}, and is never routed or scheduled, delayed or not: the
   # processor holds a delayed one, and a `<cancel>` of its send id reaches
-  # that processor's `cancel` once. What `deliver` answers is not read.
+  # that processor's `cancel` once. What `deliver` answers is not read,
+  # unless it is a {DeliveryFailure}.
+  #
+  # A failed send. A send a processor could not deliver comes back to the
+  # chart as `error.communication` on its internal queue, its origin the
+  # send's content and its `sendid` the send's id whether or not its author
+  # named it, as the reference's `Statifier.Session.failed_send/3` writes it.
+  # A failure the processor knows of while it is handed the send is answered
+  # from `deliver` as a {DeliveryFailure}, and the event is raised then, at
+  # the send's place in the call, as the reference raises the failure its
+  # processor plans in `deliver/3`. A failure the host learns of later is
+  # reported through {Statifier.report_send_failed}, with the send it was
+  # handed: the driver keeps no table of handed sends. The reason the host
+  # gives is not read, and the chart is not handed it.
   #
   # A macrostep that spends its round budget halts the driver as the
   # reference halts its session: further external events are queued and not
@@ -161,6 +174,18 @@ module Statifier
     #   @return [String] the session's id, the one `_sessionid` reads
     Context = ::Data.define(:session_id)
 
+    # What a processor's `deliver` answers for a send it could not deliver:
+    # the send then fails within the call that handed it, as
+    # {Statifier.report_send_failed} fails a send reported later.
+    #
+    # @!attribute [r] reason
+    #   @return [Object, nil] the host's own account of the failure; the
+    #     driver does not read it and the chart is not handed it
+    DeliveryFailure = ::Data.define(:reason) do
+      # A failure with no reason given.
+      def initialize(reason: nil) = super
+    end
+
     # The round budget when the host sets none.
     MAX_MACROSTEP_ROUNDS = Interpreter::MachineState::MAX_MACROSTEP_ROUNDS
   end
@@ -169,6 +194,7 @@ end
 require_relative "driver/session_id"
 require_relative "driver/work"
 require_relative "driver/routing"
+require_relative "driver/delivery"
 require_relative "driver/checks"
 require_relative "driver/invocations"
 require_relative "driver/mailbox"
