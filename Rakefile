@@ -2,6 +2,11 @@
 
 require "minitest/test_task"
 require "rubocop/rake_task"
+require_relative "test/conformance/corpus_check"
+require_relative "test/conformance/ratchet"
+require_relative "test/conformance/refresh"
+require_relative "test/conformance/registry"
+require_relative "test/conformance/runner"
 
 RuboCop::RakeTask.new
 
@@ -12,6 +17,57 @@ RuboCop::RakeTask.new
 Minitest::TestTask.create(:test) do |t|
   t.test_prelude = %(require "simplecov")
   t.test_globs = ["test/**/*_test.rb"]
+end
+
+# The conformance apparatus under conformance/ (its README says what is
+# copied, from where, and what is this repository's own). The code these
+# tasks call lives in test/conformance/, beside the suite that tests it;
+# none of it ships.
+namespace :corpus do
+  desc "Check that the vendored corpus hashes to what its four records say"
+  task :check do
+    problems = Conformance::CorpusCheck.problems
+    unless problems.empty?
+      abort ["corpus:check failed:", *problems,
+             "Restore the copied bytes or refresh the copy to a tag; never rewrite a hash."].join("\n  ")
+    end
+    puts Conformance::CorpusCheck.summary
+  end
+
+  desc "Move conformance/statifier/ to a statifier-ex tag, read from a clone: rake \"corpus:refresh[TAG,CLONE]\""
+  task :refresh, %i[tag from] do |_task, args|
+    abort "corpus:refresh: name the tag and a clone of statifier-ex: rake \"corpus:refresh[TAG,CLONE]\"" \
+      unless args[:tag] && args[:from]
+
+    puts Conformance::Refresh.run(tag: args[:tag], from: File.expand_path(args[:from]), repo_root: __dir__)
+  rescue Conformance::Refresh::Refused => e
+    abort "corpus:refresh refused; nothing was written: #{e.message}"
+  end
+end
+
+# A stage of the gate: every check the copy's RATCHET.md puts over a
+# sibling's registry, against a run of the whole corpus made now.
+desc "Check conformance/registry.json against the corpus and a run made now"
+task :registry do
+  corpus = Conformance::Corpus.load
+  bytes = File.binread(Conformance::Registry::PATH)
+  problems = Conformance::RegistryCheck.problems(bytes, corpus, Conformance::Runner.run(corpus))
+  abort ["registry failed:", *problems].join("\n  ") unless problems.empty?
+
+  entries = JSON.parse(bytes)["entries"]
+  puts(entries.empty? ? "registry: no claim is made" : "registry: #{entries.size} entries pass today")
+  puts Conformance::Runner.unclaimed_lines(corpus, entries, Conformance::Records.reference_entries)
+end
+
+# The only writer of conformance/registry.json: it runs the whole corpus now
+# and adds every case the run observed to pass.
+desc "Run the corpus and record every observed pass in conformance/registry.json"
+task :ratchet do
+  corpus = Conformance::Corpus.load
+  problems = Conformance::Ratchet.write(Conformance::Registry::PATH, corpus, Conformance::Runner.run(corpus))
+  abort ["ratchet refused; nothing was written:", *problems].join("\n  ") unless problems.empty?
+
+  puts "ratchet: wrote conformance/#{Conformance::REGISTRY_FILE}"
 end
 
 # The publish step of .github/workflows/release.yml, which publishes through
@@ -61,4 +117,4 @@ task :release do
 end
 
 # The full gate.
-task default: %i[rubocop test]
+task default: %i[rubocop corpus:check registry test]
