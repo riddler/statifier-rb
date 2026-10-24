@@ -49,7 +49,7 @@ module Statifier
       # @raise [TypeError] when `state` is not a driver state
       # @raise [ArgumentError] when the processors name other types
       def state(state, processors)
-        raise TypeError, "expected a Statifier::Driver::State, got #{state.class}" unless state.is_a?(State)
+        raise TypeError, "expected a driver state a call answered, got #{state.class}" unless state.is_a?(State)
         return state if processors.nil? || registered_types(processors) == state.send_types
 
         raise ArgumentError, "processors must register the types the chart started with: #{state.send_types}"

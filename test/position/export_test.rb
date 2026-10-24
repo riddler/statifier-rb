@@ -23,7 +23,7 @@ class PositionExportTest < Minitest::Test
                  exported["datamodel"].slice("_name", "_sessionid", "n"))
   end
 
-  # sabotage: drop the Ractor.make_shareable in Position.exported; the
+  # sabotage: drop the Ractor.make_shareable in Position::Codec.exported; the
   # assert_predicate on the frozen position fails.
   def test_export_answers_plain_frozen_data_that_survives_json_and_leaves_the_state_as_it_was
     state = after("e.go")
@@ -35,7 +35,7 @@ class PositionExportTest < Minitest::Test
   end
 
   # sabotage: copy the pending timers into the position in
-  # Position.exported; the assert_equal on the keys fails.
+  # Position::Codec.exported; the assert_equal on the keys fails.
   def test_export_writes_no_member_of_the_driver
     state = start(%(<state id="a"><onentry><send event="t" delay="5s"/></onentry></state>)).state
 
@@ -43,7 +43,7 @@ class PositionExportTest < Minitest::Test
     assert_equal Statifier::Position::KEYS, position(state).keys
   end
 
-  # sabotage: drop the internal-queue check in Position.export; the
+  # sabotage: drop the internal-queue check in Position::Codec.export; the
   # refute_predicate in `refusal` fails (the export succeeds).
   def test_export_refuses_a_state_whose_internal_queue_holds_an_event
     looping = %(<state id="a"><onentry><raise event="r"/></onentry><transition event="r" target="a"/></state>)
@@ -70,7 +70,7 @@ class PositionExportTest < Minitest::Test
                  refusal(Statifier.export_position(state))
   end
 
-  # sabotage: call Position.export without Driver::Checks.state in
+  # sabotage: call Position::Codec.export without DRIVER_CHECKS.state in
   # Statifier.export_position; the assert_raises fails (NoMethodError).
   def test_export_takes_only_a_driver_state
     assert_raises(TypeError) { Statifier.export_position({}) }
