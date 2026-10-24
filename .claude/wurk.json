@@ -1,0 +1,101 @@
+{
+  "wurk": 1,
+
+  "beads": {
+    "prefix": "srb",
+    "sync": "dolthub",
+    "topology": "beads",
+    "areas": {
+      "labels": [
+        "area:build",
+        "area:xml",
+        "area:compiler",
+        "area:datamodel",
+        "area:core",
+        "area:driver",
+        "area:conformance",
+        "area:api",
+        "area:docs"
+      ],
+      "lands_alone": ["area:build"],
+      "always_batchable": ["upstream"]
+    }
+  },
+
+  "forge": {
+    "kind": "github",
+    "labels": {}
+  },
+
+  "gate": {
+    "full": ["mise", "exec", "--", "bundle", "exec", "rake"],
+    "loop": ["mise", "exec", "--", "bundle", "exec", "rake", "test"],
+    "build_paths": [
+      "lib/",
+      "test/",
+      "Rakefile",
+      "Gemfile",
+      "Gemfile.lock",
+      "statifier.gemspec",
+      ".rubocop.yml",
+      ".simplecov",
+      "mise.toml"
+    ],
+    "also_gated_paths": ["conformance/"],
+    "moving_files": ["Rakefile", ".rubocop.yml"],
+    "sabotage": {
+      "test_roots": ["test/"],
+      "test_pattern": "\\b(def\\s+test_|it\\s+[\"'])",
+      "exempt_prefixes": []
+    },
+    "project_level_skips": [],
+    "not_applicable_skips": []
+  },
+
+  "parallelism": {
+    "model": "worktree-per-issue",
+    "worktrees_dir": "../statifier-rb-worktrees",
+    "trust": ["mise", "trust", "{path}"],
+    "warm_clone": [],
+    "warm": [["mise", "exec", "--", "bundle", "install"]],
+    "repair_when": "Gemfile.lock",
+    "repair": [["mise", "exec", "--", "bundle", "install"]],
+    "post_branch": []
+  },
+
+  "tmux": {
+    "session": "statifier-rb",
+    "model": "opus"
+  },
+
+  "models": {
+    "direction": "fable"
+  },
+
+  "artifacts": {
+    "plans": "docs/plans",
+    "research": "docs/research",
+    "filename": "YYMMDD-[id-]kebab"
+  },
+
+  "commits": {
+    "style": "s-form",
+    "subject_under": 72,
+    "body_line_max": 72,
+    "total_lines_max": 40,
+    "trailer": {
+      "key": "Refs"
+    }
+  },
+
+  "changelog": {
+    "mode": "fragments",
+    "dir": "changelog.d"
+  },
+
+  "release": {
+    "kind": "gem",
+    "version_file": "lib/statifier/version.rb",
+    "readme_pin": true
+  }
+}
