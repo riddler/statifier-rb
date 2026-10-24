@@ -13,7 +13,7 @@ require_relative "statifier/accepts"
 
 # The interpreter core of an SCXML statechart engine.
 #
-# The package is being rewritten for 0.1.0. {Statifier.compile} reads SCXML
+# This is the 0.1.0 rewrite of the package. {Statifier.compile} reads SCXML
 # source into a machine, through the reader, the lowering, the validator
 # and the compiler, all internal. The driver
 # ({Statifier::Driver}) steps a machine: {Statifier.start} starts a chart,

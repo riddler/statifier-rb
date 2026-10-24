@@ -148,7 +148,7 @@ expressions and assignments; the SCXML front end is hand-written, with no XML
 gem; it runs on Ruby 3.3 or later.
 
 The tree holds the scaffold of the 0.1.0 package: the `Statifier` module
-(`lib/statifier.rb`, `lib/statifier/version.rb`, version `0.1.0.pre`), the
+(`lib/statifier.rb`, `lib/statifier/version.rb`, version `0.1.0`), the
 gemspec, the `Gemfile`, `mise.toml`, the lint and coverage configuration, the
 `Rakefile` and its gate, the tests of the version, the gemspec and the
 release task's guard, CI (`.github/workflows/ci.yml`) and the release
