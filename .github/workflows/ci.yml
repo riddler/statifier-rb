@@ -1,0 +1,104 @@
+name: CI
+
+# Two jobs. `gate` runs the full quality gate - the command an agent must
+# have green before committing - on the Ruby mise.toml pins. `tests` runs the
+# test suite on every Ruby minor the gem supports, from the gemspec's floor
+# (3.3) up to the pinned line, so a change that works only on the newest Ruby
+# is caught before it ships.
+#
+# Every action is pinned to a full commit SHA, its release tag in the
+# trailing comment; moving an action to a new release means moving both.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only: nothing here writes to the repository or authenticates to a
+# registry.
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request supersedes the run in
+# progress.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Full quality gate (mise.toml Ruby)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # The Ruby comes from mise.toml (setup-ruby reads it when no
+      # ruby-version is given and there is no .ruby-version or .tool-versions
+      # file), so a version written into this file cannot drift from the one
+      # an agent runs locally. Bundler is the version Gemfile.lock's BUNDLED
+      # WITH names, and the gems install from the lock in deployment mode,
+      # cached on its hash.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          bundler-cache: true
+
+      - name: Check the Ruby is the one mise.toml pins
+        run: |
+          set -euo pipefail
+          pinned="$(sed -n 's/^ruby *= *"\([^"]*\)".*$/\1/p' mise.toml | head -1)"
+          test -n "$pinned" || { echo "::error::no ruby version in mise.toml" >&2; exit 1; }
+          running="$(ruby -e 'print RUBY_VERSION')"
+          if [ "$pinned" != "$running" ]; then
+            echo "::error::mise.toml pins ruby ${pinned} but this job runs ${running}" >&2
+            exit 1
+          fi
+          echo "ruby ${running}, as mise.toml pins"
+
+      # The gate is the Rakefile's default task: rubocop, then the test suite
+      # under the coverage minimum .simplecov sets. The command is read out of
+      # .claude/wurk.json (gate.full) rather than written here, so the gate CI
+      # runs and the gate an agent must have green are one definition with one
+      # place to change it. The leading `mise exec --` is dropped: setup-ruby
+      # has already put the pinned Ruby on the PATH. The command is read and
+      # executed inside the step rather than interpolated into `run:`, so a
+      # repository file never reaches the shell as expression text.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          mapfile -t cmd < <(jq -er '.gate.full[]' .claude/wurk.json)
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          if [ "${#cmd[@]}" -ge 3 ] && [ "${cmd[0]}" = "mise" ] && [ "${cmd[1]}" = "exec" ] && [ "${cmd[2]}" = "--" ]; then
+            cmd=("${cmd[@]:3}")
+          fi
+          echo "gate command (.claude/wurk.json gate.full, without mise exec --): ${cmd[*]}"
+          "${cmd[@]}"
+
+  tests:
+    name: Tests (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every supported minor: the gemspec's required_ruby_version floor up
+        # to the line mise.toml pins. A new Ruby line is added here when
+        # mise.toml moves to it.
+        ruby: ["3.3", "3.4", "4.0"]
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      # The test suite alone, under the same coverage minimum as the gate.
+      # Style is the gate job's: rubocop answers the same on every Ruby.
+      - name: Test suite
+        run: bundle exec rake test
