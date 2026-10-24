@@ -2,6 +2,7 @@
 
 require_relative "corpus"
 require_relative "host"
+require_relative "accepts"
 require_relative "../../lib/statifier"
 
 module Conformance
@@ -92,12 +93,20 @@ module Conformance
   # through `Statifier.Session.failed_send/3` before it reads the next
   # configuration (`pump/3` in host_case.ex).
   #
-  # Any other host key (the statifier suite's `declared_events`,
-  # `expect_accepts`, `to_source`, `expect_diff`, `mapping` and
-  # `expect_compatible_at`, and any key a later corpus adds) is not honoured
-  # here and fails the case naming the key. A case stating an exported
-  # position asks for what this runner does not compare yet, and fails with
-  # that named.
+  # A case's `host.declared_events` and `host.expect_accepts` are read as
+  # the reference's harness reads them (`accepts/2` in host_case.ex),
+  # present together or not at all: once the source compiles and before the
+  # chart starts, {Statifier.check_accepts} answers for the compiled chart
+  # and `declared_events`, and the case agrees only when its two lists are
+  # exactly `expect_accepts`' `unreachable` and `undeclared`, order
+  # included. Either key without the other fails the case, naming the one
+  # present.
+  #
+  # Any other host key (the statifier suite's `to_source`, `expect_diff`,
+  # `mapping` and `expect_compatible_at`, and any key a later corpus adds)
+  # is not honoured here and fails the case naming the key. A case stating
+  # an exported position asks for what this runner does not compare yet,
+  # and fails with that named.
   module Drive
     # How long, in virtual ms, the clock may run before an event to drain
     # short timers.
@@ -116,7 +125,7 @@ module Conformance
     PROVIDED = {}.freeze
 
     # The host keys the drive reads; any other is not honoured.
-    HONOURED_HOST_KEYS = %w[event_io_processors send_types expect_sends].freeze
+    HONOURED_HOST_KEYS = %w[event_io_processors send_types expect_sends declared_events expect_accepts].freeze
 
     # The answer for item: :pass, or the reason it failed. provided is the
     # table of processors the drive can register (PROVIDED, unless a test
@@ -125,12 +134,11 @@ module Conformance
       unhonoured = unhonoured(item, provided)
       return unhonoured if unhonoured
 
-      compiled = Statifier.compile(item.fetch("source"))
-      return "the source does not compile: #{compiled.error.map { "#{_1.reason}: #{_1.message}" }.join("; ")}" \
-        unless compiled.ok?
+      machine, failed = Accepts.prepared(item)
+      return failed if failed
 
       host = Host.for(item)
-      driven = drive(item, compiled.value, host.processors.merge(registered(item, provided)), host)
+      driven = drive(item, machine, host.processors.merge(registered(item, provided)), host)
       driven == :pass ? host.verdict : driven
     end
 

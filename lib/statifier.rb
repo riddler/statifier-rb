@@ -9,6 +9,7 @@ require_relative "statifier/datamodel"
 require_relative "statifier/interpreter"
 require_relative "statifier/driver"
 require_relative "statifier/position"
+require_relative "statifier/accepts"
 
 # The interpreter core of an SCXML statechart engine.
 #
@@ -23,10 +24,14 @@ require_relative "statifier/position"
 # {Statifier.export_position} writes a chart's execution out as plain data a
 # host can keep, and {Statifier.import_position} reads it back in. The
 # interpreter under the driver ({Statifier::Interpreter}) is internal.
+# {Statifier.check_accepts} compares the event names a host declares a
+# chart accepts with the events the chart listens for.
 #
-# Every one of those calls answers a {Result}. Nothing is kept between
-# calls but the state a call answers: there is no global configuration, and
-# a host passes its processors and its clock with every call.
+# Every one of those calls but {Statifier.check_accepts}, which refuses
+# nothing and answers its {AcceptsCheck} directly, answers a {Result}.
+# Nothing is kept between calls but the state a call answers: there is no
+# global configuration, and a host passes its processors and its clock with
+# every call.
 module Statifier
   # What every public call answers: its `value`, or, as `error`, why it
   # was refused.
@@ -300,5 +305,64 @@ module Statifier
     raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
 
     Position.import(machine, position, processors)
+  end
+
+  # Compares `declared_events`, the event names a chart is declared to
+  # accept, with the chart's event vocabulary: every event descriptor on a
+  # transition whose source state can be active, as authored, a pattern
+  # never expanded. "Can be active" is a static rule over the chart's
+  # structure that reads no `cond` (a state some path of transitions and
+  # initial, parallel and history defaults enters, with its ancestors), so
+  # it over-counts and never under-counts. The reference's
+  # `Statifier.Chart.check_accepts/2` answers the same two lists.
+  #
+  # A descriptor matches a declared name as transition selection matches an
+  # event, on token boundaries: a declared `e.go` is matched by the
+  # descriptors `e.go`, `e.*`, `e.`, `e` and `*`, and not by `e.gone` or
+  # `e.go.now`. A declared name is a name, not a descriptor: a `*` in it is
+  # an ordinary token, so a declared `e.*` is matched by the descriptor `e`
+  # and not by `e.go`.
+  #
+  # - `unreachable`: each declared name no descriptor matches, in the
+  #   declaration's order and without duplicates.
+  # - `undeclared`: each descriptor that matches no declared name, in
+  #   document order of the transitions (a state's own before its
+  #   children's), each descriptor once.
+  #
+  # An empty declaration declares that the chart accepts nothing:
+  # `unreachable` is empty and `undeclared` is the whole vocabulary. With
+  # nil, no declaration, the vocabulary is the contract, so both lists are
+  # empty; a host asking whether one name `n` is in the vocabulary passes
+  # `[n]` and reads `unreachable`. It reports and refuses nothing: which
+  # list a host refuses a chart on, if either, is the host's decision. The
+  # declared names are read, never frozen or changed.
+  #
+  # @example
+  #   machine = Statifier.compile(<<~SCXML).value
+  #     <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0">
+  #       <state id="a"><transition event="e.go" target="b"/></state>
+  #       <state id="b"><transition event="e.back" target="a"/></state>
+  #     </scxml>
+  #   SCXML
+  #   check = Statifier.check_accepts(machine, ["e.go", "e.stop"])
+  #   check.unreachable # => ["e.stop"]
+  #   check.undeclared  # => ["e.back"]
+  #
+  # @param machine [Machine] a compiled chart
+  # @param declared_events [Array<String>, nil] the declared event names,
+  #   or nil for no declaration
+  # @return [AcceptsCheck] the two lists, frozen
+  # @raise [TypeError] for a machine of the wrong kind, a declaration that
+  #   is neither an Array nor nil, or a declared name that is not a String
+  def self.check_accepts(machine, declared_events)
+    raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
+    unless declared_events.nil? || declared_events.is_a?(Array)
+      raise TypeError, "expected the declared events as an Array or nil, got #{declared_events.class}"
+    end
+
+    stray = declared_events&.find { !_1.is_a?(String) }
+    raise TypeError, "expected every declared event to be a String, got #{stray.class}" unless stray.nil?
+
+    Accepts.check(machine, declared_events)
   end
 end

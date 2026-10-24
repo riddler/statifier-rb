@@ -122,6 +122,7 @@
     {"case_id":"scion/targetless-transition/test1","suite":"scion"},
     {"case_id":"scion/targetless-transition/test2","suite":"scion"},
     {"case_id":"scion/targetless-transition/test3","suite":"scion"},
+    {"case_id":"statifier/accepts/loan_declares_an_unreachable_event","suite":"statifier"},
     {"case_id":"statifier/library/hold_queue_available_with_no_holds","suite":"statifier"},
     {"case_id":"statifier/library/hold_queue_collected_cancels_timer","suite":"statifier"},
     {"case_id":"statifier/library/hold_queue_expiry_moves_to_next","suite":"statifier"},

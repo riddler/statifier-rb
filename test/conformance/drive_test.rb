@@ -46,10 +46,10 @@ class DriveTest < Minitest::Test
   # sabotage: answer nil for a case with a host key (drop the `other` line in
   # Drive.unhonoured); the first assert_equal on the reason fails.
   def test_a_case_asking_what_the_runner_does_not_honour_fails_naming_it
-    item = chart_case(%(<state id="a"/>), %w[a]).merge("host" => { "send_types" => [], "declared_events" => [],
+    item = chart_case(%(<state id="a"/>), %w[a]).merge("host" => { "send_types" => [], "expect_diff" => {},
                                                                    "x_unknown" => 1 })
 
-    assert_equal "the case's host object (declared_events, x_unknown) is not honoured here",
+    assert_equal "the case's host object (expect_diff, x_unknown) is not honoured here",
                  Conformance::Drive.call(item)
     assert_match(/does not compile/, drive("<state", []))
   end
