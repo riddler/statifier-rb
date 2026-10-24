@@ -7,11 +7,17 @@ require_relative "xml_helper"
 class TextRefusalsTest < Minitest::Test
   include XMLHelper
 
-  # sabotage: answer the literal text for an unknown name in read_reference
-  # (fetch(body) { "&#{body};" }); the assert_refused for "&nbsp;" fails.
-  def test_refuses_an_entity_other_than_the_five_predefined_ones
+  # sabotage: drop `@doctype &&` from entity_reference, so any name is kept
+  # as literal text; the assert_refused for "&nbsp;" fails.
+  def test_refuses_an_entity_other_than_the_five_predefined_ones_with_no_doctype
     assert_refused "<a>&nbsp;</a>", :unknown_entity, 1, 4
-    assert_refused "<!DOCTYPE a [<!ENTITY e 'v'>]><a>&e;</a>", :unknown_entity, 1, 34
+    assert_refused '<a b="&x;"/>', :unknown_entity, 1, 7
+  end
+
+  # sabotage: drop the Tags::WHOLE_NAME match from entity_reference; the
+  # assert_refused for "&1x;" fails.
+  def test_refuses_a_reference_to_no_name_under_a_doctype
+    assert_refused "<!DOCTYPE a><a>&1x;</a>", :unknown_entity, 1, 16
   end
 
   # sabotage: let REFERENCE's body run across whitespace and quotes

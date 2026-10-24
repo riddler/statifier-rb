@@ -35,4 +35,23 @@ class ReferencesTest < Minitest::Test
       assert_equal character, attribute_value(%(<a x="#{reference}"/>)), reference
     end
   end
+
+  # sabotage: refuse every non-predefined name in entity_reference (drop
+  # its first line); root flunks on the parse of the declared entity.
+  def test_keeps_a_declared_entity_reference_as_its_literal_text
+    assert_equal "&x;", text_value(%(<!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>))
+  end
+
+  # sabotage: expand the reference to an empty string in entity_reference
+  # (return "" instead of "&#{body};"); the assert_equal on "&x;" fails.
+  def test_keeps_an_entity_reference_in_an_attribute_value_as_its_literal_text
+    assert_equal "&x;", attribute_value(%(<!DOCTYPE a [<!ENTITY x "y">]><a b="&x;"/>))
+  end
+
+  # sabotage: set @doctype in skip_doctype only when the declaration holds
+  # a "[" (@cursor.text.byteslice(start.offset, angle - start.offset)
+  # .include?("[")); root flunks on the external-subset document.
+  def test_keeps_a_reference_under_an_external_subset_as_its_literal_text
+    assert_equal "t &foo; & A", text_value(%(<!DOCTYPE a SYSTEM "x.dtd"><a>t &foo; &amp; &#65;</a>))
+  end
 end
