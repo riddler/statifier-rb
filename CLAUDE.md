@@ -147,7 +147,7 @@ dependency, the `predicator` gem (2.x), which evaluates conditions,
 expressions and assignments; the SCXML front end is hand-written, with no XML
 gem; it runs on Ruby 3.3 or later.
 
-The tree holds the scaffold of the 0.1.0 package: the empty `Statifier` module
+The tree holds the scaffold of the 0.1.0 package: the `Statifier` module
 (`lib/statifier.rb`, `lib/statifier/version.rb`, version `0.1.0.pre`), the
 gemspec, the `Gemfile`, `mise.toml`, the lint and coverage configuration, the
 `Rakefile` and its gate, the tests of the version, the gemspec and the
@@ -156,9 +156,12 @@ workflow (`.github/workflows/release.yml`). It also holds the conformance
 apparatus: the corpus vendored from statifier-ex under `conformance/`, its
 provenance record and this package's registry, and the corpus check, the
 registry check, the ratchet, the refresh and the conformance runner under
-`test/conformance/` (`conformance/README.md` says what each is). The 2019
-stub is gone. The interpreter arrives with later changes; until it does, the
-sentences in this file about it describe the target, not the current tree,
+`test/conformance/` (`conformance/README.md` says what each is). And it
+holds the XML reader, `Statifier::XML` under `lib/statifier/xml/`, which
+turns a document into an element tree with a source span on every node; it
+is internal, called by no public method yet. The 2019 stub is gone. The
+compiler and the interpreter arrive with later changes; until they do, the
+sentences in this file about them describe the target, not the current tree,
 and the registry claims no case.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
