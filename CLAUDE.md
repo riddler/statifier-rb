@@ -159,7 +159,12 @@ registry check, the ratchet, the refresh and the conformance runner under
 `test/conformance/` (`conformance/README.md` says what each is). And it
 holds the XML reader, `Statifier::XML` under `lib/statifier/xml/`, which
 turns a document into an element tree with a source span on every node; it
-is internal, called by no public method yet. The 2019 stub is gone. The
+is internal, called by no public method yet. Beside it is the lowering,
+`Statifier::Lowering` under `lib/statifier/lowering/`, which turns that
+tree into a typed chart of immutable nodes, `Statifier::Document` under
+`lib/statifier/document/`, with expressions kept as source text and a
+source span on every node, or answers every refusal; it is internal too.
+The 2019 stub is gone. The
 compiler and the interpreter arrive with later changes; until they do, the
 sentences in this file about them describe the target, not the current tree,
 and the registry claims no case.
