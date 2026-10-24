@@ -44,6 +44,17 @@ class RegistryTest < Minitest::Test
     Conformance::RegistryCheck.problems(bytes, CORPUS, results)
   end
 
+  # sabotage: delete one entry line from conformance/registry.json; the
+  # assert_equal on the registry's entry ids fails.
+  def test_the_shipped_registry_holds_exactly_the_scion_suite_and_claims_it
+    shipped = JSON.parse(File.read(Conformance::Registry::PATH))
+    scion = CORPUS.cases_of("scion").map { |item| item["id"] }
+
+    assert_equal(scion, shipped["entries"].map { |entry| entry["case_id"] })
+    assert_equal 119, shipped["entries"].size
+    assert_equal ["scion"], shipped["claims"]
+  end
+
   # sabotage: append a blank line to conformance/registry.json; the
   # assert_empty on its problems fails (the encoding check names it).
   def test_the_shipped_registry_passes_and_claims_only_scion_cases

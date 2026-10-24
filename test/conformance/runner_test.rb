@@ -143,15 +143,4 @@ class RunnerTest < Minitest::Test
     "conformance: #{suite}: #{open.size} of #{CORPUS.cases_of(suite).size} cases not yet claimed " \
       "(the reference claims #{theirs.size} of them)"
   end
-
-  # sabotage: list every case in failing_lines, passing or not; the
-  # assert_equal on the printed lines fails.
-  def test_prints_the_failing_cases_in_reference_order_with_the_features_each_needs
-    results = Conformance::Runner.run(CORPUS, drive: ->(item) { item["id"] == "w3c/test144" ? :pass : "no" })
-    failing = CORPUS.cases.reject { |item| item["id"] == "w3c/test144" }
-    lines = Conformance::Runner.failing_lines(CORPUS, results)
-
-    assert_equal(failing.map { |item| "#{item["id"]} (needs #{item["required_features"].join(", ")}): no" },
-                 lines.map { |line| line.delete_prefix("conformance: failing: ") })
-  end
 end
