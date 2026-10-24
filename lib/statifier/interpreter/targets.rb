@@ -10,16 +10,17 @@ module Statifier
     # @api private
     module Targets
       # What the driver declares a session can reach: `sessions`, the
-      # session ids a `#_scxml_` target may name; `parent`, whether the
-      # session has a parent; and `invokes`, the invoke ids a `#_` target
-      # may name. The session itself and its internal queue need no entry.
-      Routes = ::Data.define(:sessions, :parent, :invokes) do
+      # session ids a `#_scxml_` target may name; `parent?`, whether the
+      # session has a parent (the reference's `parent?`, spelled the same);
+      # and `invokes`, the invoke ids a `#_` target may name. The session
+      # itself and its internal queue need no entry.
+      Routes = ::Data.define(:sessions, :parent?, :invokes) do
         # Whether `route` (a {Route}) is reachable.
         def reachable?(route)
           case route.kind
           when :self, :internal then true
           when :session then sessions.include?(route.id)
-          when :parent then parent
+          when :parent then parent?
           when :invoke then invokes.include?(route.id)
           else false
           end

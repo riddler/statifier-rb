@@ -84,9 +84,13 @@ does not name (at every object the schema closes), hands every case to the
 drive, requires every case this registry claims to pass, and prints per
 suite how many cases are not yet claimed. The drive (`Conformance::Drive` in
 `test/conformance/runner.rb`) is the one place the interpreter is plugged
-into the run. This package has no driver yet, so today the drive
-answers every case with the reason that it is not driven, the run passes
-nothing, and every case is unclaimed.
+into the run. It drives each case through the package's driver
+(`Statifier.start`, `Statifier.step` and `Statifier.advance`) on a virtual
+clock that settles 100 virtual milliseconds before each event and waits at
+most 4000 virtual milliseconds after it, the two knobs of the reference's
+harness. A case carrying a `host` object, or a step stating an exported
+position, fails naming what it asks for. No case is claimed in this
+registry yet, so every case is unclaimed however the run answers it.
 
 An excluded document is not in the corpus at all, so it is not a case and
 is counted nowhere; `exclusions.json` is copied for its reasons. A case in
