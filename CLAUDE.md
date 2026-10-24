@@ -176,6 +176,12 @@ expression through predicator into the machine, `Statifier::Machine` under
 package's one public method is `Statifier.compile`, which runs the four in
 order and answers a result (`ok?`, `value`, `error`): the machine, or the
 refusals of the first stage that refused.
+Beside them is the datamodel binding, `Statifier::Datamodel` under
+`lib/statifier/datamodel/`, internal too: the functions the interpreter
+will call to evaluate a condition or a value, run a `<script>` program,
+write an `<assign>` location, bind `<data>`, seed the system variables and
+read a delay, each through predicator with `In()` as a host function, and
+each answering a failure as the reason its `error.execution` carries.
 The 2019 stub is gone. The
 interpreter arrives with later changes; until it does, the
 sentences in this file about it describe the target, not the current tree,
