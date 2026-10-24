@@ -73,28 +73,29 @@ class DriveTest < Minitest::Test
     chart_case(body, %w[a], [["e.go", %w[b]]]).merge("host" => { "event_io_processors" => processors })
   end
 
-  # sabotage: answer {} from Drive.registered; the assert_equal on the
+  # sabotage: answer {} from Loopback::Wire#register; the assert_equal on the
   # processor's recorded targets fails (nothing is registered, so nothing
   # is delivered to it).
   def test_a_case_naming_a_provided_processor_is_driven_with_it_registered
     recorder = Recorder.new
-    provided = { PROCESSOR => -> { { "test:sink" => recorder } } }
+    provided = { PROCESSOR => ->(_wire) { { "test:sink" => recorder } } }
 
     assert_equal :pass, Conformance::Drive.call(host_case([PROCESSOR]), provided:)
     assert_equal ["t"], recorder.sent
   end
 
   # sabotage: treat a URI `provided` holds no entry for as providing nothing
-  # (`missing = []` in Drive.unhonoured, `provided.fetch(uri, -> { {} })` in
-  # Drive.registered); the first assert_equal on the reason fails (the case
-  # then passes).
+  # (`missing = []` in Loopback.not_provided, `provided.fetch(uri, ->(_wire) { {} })`
+  # in Loopback::Wire#register); the first assert_equal on the reason fails
+  # (the case then passes).
   def test_a_case_naming_a_processor_that_is_not_provided_is_refused_naming_it
     reason = "the case's host object names the Event I/O Processor urn:test:other, " \
              "which this package does not provide"
 
-    assert_equal reason, Conformance::Drive.call(host_case(["urn:test:other"]), provided: { PROCESSOR => -> { {} } })
+    assert_equal reason, Conformance::Drive.call(host_case(["urn:test:other"]),
+                                                 provided: { PROCESSOR => ->(_wire) { {} } })
     assert_equal reason, Conformance::Drive.call(host_case([PROCESSOR, "urn:test:other"]),
-                                                 provided: { PROCESSOR => -> { {} } })
+                                                 provided: { PROCESSOR => ->(_wire) { {} } })
   end
 
   # sabotage: answer nil from Drive.unhonoured whenever a processor is
@@ -105,23 +106,23 @@ class DriveTest < Minitest::Test
     item["host"]["x_unknown"] = "<scxml/>"
 
     assert_equal "the case's host object (x_unknown) is not honoured here",
-                 Conformance::Drive.call(item, provided: { PROCESSOR => -> { {} } })
+                 Conformance::Drive.call(item, provided: { PROCESSOR => ->(_wire) { {} } })
   end
 
-  # sabotage: answer [] for a value that is not an Array in Drive.named; the
+  # sabotage: answer [] for a value that is not an Array in Loopback.named; the
   # assert_equal on the reason fails (the case then names nothing and passes).
   def test_a_processor_list_that_is_not_a_list_is_refused_whole
     item = host_case(PROCESSOR)
 
-    reason = Conformance::Drive.call(item, provided: { PROCESSOR => -> { {} } })
+    reason = Conformance::Drive.call(item, provided: { PROCESSOR => ->(_wire) { {} } })
 
     assert_equal "the case's host object names the Event I/O Processor \"urn:test:processor\", " \
                  "which this package does not provide", reason
   end
 
-  # sabotage: add an entry to Drive::PROVIDED; the assert_empty fails.
-  def test_the_package_provides_no_processor_yet
-    assert_empty Conformance::Drive::PROVIDED
+  # sabotage: empty Loopback::PROCESSORS; the assert_equal on the URIs fails.
+  def test_the_package_provides_the_basic_http_processor_alone
+    assert_equal [Statifier::BasicHTTP::EVENT_PROCESSOR], Conformance::Drive::PROVIDED.keys
   end
 
   # sabotage: set SETTLE_WINDOW_MS to 5000; the assert_equal on the guarded
