@@ -18,11 +18,15 @@ module Conformance
     # Writes the registry at path from results (Runner.run's over corpus).
     # Answers the problems that stopped it, having written nothing, or an
     # empty list once the file is written.
-    def self.write(path, corpus, results)
+    #
+    # suites narrows what the run may add: only a pass in one of the named
+    # suites becomes an entry (the whole corpus is still run). Every suite is
+    # the default.
+    def self.write(path, corpus, results, suites: SUITES)
       existing = Registry.parse(File.binread(path))
       return ["#{File.basename(path)}: #{existing}"] if existing.is_a?(String)
 
-      registry = next_registry(existing, corpus, results)
+      registry = next_registry(existing, corpus, results, suites)
       return registry if registry.is_a?(Array)
 
       File.binwrite(path, Registry.encode(registry))
@@ -30,22 +34,26 @@ module Conformance
     end
 
     # The registry results earn from existing, or the problems that refuse it.
-    def self.next_registry(existing, corpus, results)
+    def self.next_registry(existing, corpus, results, suites)
       cases = corpus.by_id
       problems = run_problems(cases, results) + recorded_problems(existing["entries"], cases, results)
       return problems unless problems.empty?
 
-      entries = merged(existing["entries"], cases, results)
+      entries = merged(existing["entries"], cases, results, suites)
       { "implementation" => IMPLEMENTATION, "corpus_hash" => corpus.corpus_hash,
         "claims" => Registry.claims_of(entries, cases), "entries" => entries }
     end
 
     # The recorded entries and the run's new passes, sorted.
-    def self.merged(recorded, cases, results)
+    def self.merged(recorded, cases, results, suites)
       ids = recorded.map { |entry| entry["case_id"] }
-      passes = results.select { |_, result| result["result"] == "pass" }.keys
-      added = (passes - ids).map { |id| { "case_id" => id, "suite" => cases[id]["suite"] } }
+      added = (passes(cases, results, suites) - ids).map { |id| { "case_id" => id, "suite" => cases[id]["suite"] } }
       (recorded + added).sort_by { |entry| Registry.entry_order(entry) }
+    end
+
+    # The ids that passed in results and sit in one of suites.
+    def self.passes(cases, results, suites)
+      results.select { |id, result| result["result"] == "pass" && suites.include?(cases[id]["suite"]) }.keys
     end
 
     # A run that is not of the whole corpus is no run to ratchet from.
@@ -70,6 +78,6 @@ module Conformance
       end
     end
 
-    private_class_method :merged, :run_problems, :recorded_problems
+    private_class_method :merged, :passes, :run_problems, :recorded_problems
   end
 end

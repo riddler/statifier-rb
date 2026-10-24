@@ -196,5 +196,19 @@ module Conformance
         "(the reference claims #{open.count { |id| theirs.key?(id) }} of them)"
     end
     private_class_method :unclaimed_line
+
+    # One line per case that fails in results (Runner.run's), in the
+    # reference's order (the manifest's suites, each suite's cases as the
+    # file lists them): the case, the features it needs (its
+    # required_features) and why it fails.
+    def self.failing_lines(corpus, results)
+      corpus.cases.filter_map do |item|
+        result = results.fetch(item.fetch("id"))
+        next if result["result"] == "pass"
+
+        "conformance: failing: #{item["id"]} (needs #{Array(item["required_features"]).join(", ")}): " \
+          "#{result["reason"]}"
+      end
+    end
   end
 end

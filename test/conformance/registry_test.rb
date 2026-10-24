@@ -7,7 +7,7 @@ require_relative "runner"
 # The registry check (Conformance::RegistryCheck, the rake registry stage of
 # the gate): every check the copy's RATCHET.md puts over a sibling's
 # registry, against the corpus and the results of a run. The shipped
-# registry passes and makes no claim; each other test hands the check a
+# registry passes and claims scion cases only; each other test hands the check a
 # registry built here, never the committed file edited.
 class RegistryTest < Minitest::Test
   CORPUS = Conformance::Corpus.load
@@ -46,12 +46,13 @@ class RegistryTest < Minitest::Test
 
   # sabotage: append a blank line to conformance/registry.json; the
   # assert_empty on its problems fails (the encoding check names it).
-  def test_the_shipped_registry_passes_and_makes_no_claim
+  def test_the_shipped_registry_passes_and_claims_only_scion_cases
     bytes = File.binread(Conformance::Registry::PATH)
+    shipped = JSON.parse(bytes)
 
     assert_empty Conformance::RegistryCheck.problems(bytes, CORPUS, Conformance::Runner.run(CORPUS))
-    assert_equal({ "implementation" => "statifier-rb", "corpus_hash" => HASH, "claims" => [], "entries" => [] },
-                 JSON.parse(bytes))
+    assert_equal %w[scion], shipped["claims"]
+    assert_equal ["scion"], shipped["entries"].map { |entry| entry["suite"] }.uniq
   end
 
   # sabotage: make currency answer []; the assert_equal on the entry that no

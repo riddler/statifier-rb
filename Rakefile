@@ -51,20 +51,27 @@ desc "Check conformance/registry.json against the corpus and a run made now"
 task :registry do
   corpus = Conformance::Corpus.load
   bytes = File.binread(Conformance::Registry::PATH)
-  problems = Conformance::RegistryCheck.problems(bytes, corpus, Conformance::Runner.run(corpus))
+  results = Conformance::Runner.run(corpus)
+  problems = Conformance::RegistryCheck.problems(bytes, corpus, results)
   abort ["registry failed:", *problems].join("\n  ") unless problems.empty?
 
   entries = JSON.parse(bytes)["entries"]
   puts(entries.empty? ? "registry: no claim is made" : "registry: #{entries.size} entries pass today")
   puts Conformance::Runner.unclaimed_lines(corpus, entries, Conformance::Records.reference_entries)
+  puts Conformance::Runner.failing_lines(corpus, results)
 end
 
 # The only writer of conformance/registry.json: it runs the whole corpus now
 # and adds every case the run observed to pass.
-desc "Run the corpus and record every observed pass in conformance/registry.json"
-task :ratchet do
+desc "Run the corpus and record every observed pass in conformance/registry.json; " \
+     "rake \"ratchet[scion]\" records the passes of the named suites only"
+task :ratchet, [:suites] do |_task, args|
   corpus = Conformance::Corpus.load
-  problems = Conformance::Ratchet.write(Conformance::Registry::PATH, corpus, Conformance::Runner.run(corpus))
+  suites = args[:suites] ? [args[:suites], *args.extras] : Conformance::SUITES
+  unknown = suites - Conformance::SUITES
+  abort "ratchet refused; nothing was written: unknown suite #{unknown.join(", ")}" unless unknown.empty?
+
+  problems = Conformance::Ratchet.write(Conformance::Registry::PATH, corpus, Conformance::Runner.run(corpus), suites:)
   abort ["ratchet refused; nothing was written:", *problems].join("\n  ") unless problems.empty?
 
   puts "ratchet: wrote conformance/#{Conformance::REGISTRY_FILE}"
