@@ -36,10 +36,10 @@ module Statifier
 
       # `getEffectiveTargetStates`: the transition's targets, each history
       # target resolved to its recorded value when it has one, else to its
-      # default transition's own effective targets. The list is not
-      # deduplicated; no caller's answer changes on a repeat.
+      # default transition's own effective targets, as a frozen Array. The
+      # list is not deduplicated; no caller's answer changes on a repeat.
       def get_effective_target_states(snapshot, transition)
-        transition.targets.flat_map { effective_target_states(snapshot, _1) }
+        transition.targets.flat_map { effective_target_states(snapshot, _1) }.freeze
       end
 
       # One target's effective states.

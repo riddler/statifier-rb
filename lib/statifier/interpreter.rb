@@ -2,19 +2,23 @@
 
 require_relative "machine"
 require_relative "datamodel"
+require_relative "effect"
 
 module Statifier
   # The interpreter's algorithm, ported function for function from the
   # specification's Appendix D pseudocode as the reference ports it: which
   # transitions an event enables ({Selection}, with the event-name matcher
   # {NameMatch}), what those transitions enter ({Entering}), and which
-  # states they leave and enter, in order ({ExitEntry}).
+  # states they leave and enter, in order ({ExitEntry}); and what a block of
+  # executable content does ({Content}, with `<send>` and `<cancel>` in
+  # {Send}).
   #
-  # Every function here is a pure query over plain values: a machine, a
-  # configuration, the recorded history, and, where a condition is
-  # evaluated, the datamodel. None of them runs executable content, moves a
-  # queue or keeps state; each answers what the step that calls it needs as
-  # a frozen value, and the step does the rest.
+  # Every function here is pure over plain values: a machine, a
+  # configuration, the recorded history, and, where an expression is
+  # evaluated, the datamodel. None of them moves a queue or keeps state; each
+  # answers what the step that calls it needs as a frozen value (the
+  # datamodel a block leaves, its effects and the events it raised
+  # included), and the step does the rest.
   #
   # @api private
   module Interpreter
@@ -35,3 +39,7 @@ require_relative "interpreter/name_match"
 require_relative "interpreter/selection"
 require_relative "interpreter/entering"
 require_relative "interpreter/exit_entry"
+require_relative "interpreter/targets"
+require_relative "interpreter/send"
+require_relative "interpreter/content"
+require_relative "interpreter/foreach"

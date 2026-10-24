@@ -189,7 +189,14 @@ exit and entry, as pure functions over the machine, a configuration, the
 recorded history and the datamodel. They answer the transitions that
 fire, the states to exit and enter in order, the history to record, the
 content each entry runs and the completion events it raises, as frozen
-values; they run no executable content.
+values. Beside them is the block runner, `Statifier::Interpreter::Content`
+(with `<foreach>` in `Interpreter::Foreach` and `<send>` and `<cancel>` in
+`Interpreter::Send` and `Interpreter::Targets`), internal too: it runs a
+block of executable content against one datamodel context, stops at the
+first node that fails, and answers the datamodel it leaves, its effects
+(`Statifier::Effect`, plain data values) and the events it raised, for
+the step to queue; every `<send>` is an effect, and the core delivers and
+schedules nothing.
 The 2019 stub is gone. The
 step loop that runs them and the driver arrive with later changes; until
 they do, the
