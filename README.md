@@ -212,7 +212,7 @@ driver did with it:
 | `Invoke`, `CancelInvoke`, `Autoforward` | runs an invocation of the SCXML type in process as a child session, stops it, or forwards an event to it; any other type raises `error.execution` | learns of an invocation the core starts, stops or forwards an event to |
 | `Log` | nothing | records the label and the evaluated value |
 | `DatamodelInit`, `DatamodelChange` | nothing | learns the datamodel as the chart starts, and each write after |
-| `BudgetExhausted` | queues later external events without taking them; timers still fire | learns that a macrostep spent its round budget; the chart keeps running |
+| `BudgetExhausted` | queues later external events without taking them; a fired timer to the chart itself joins its external queue, and any other is dropped | learns that a macrostep spent its round budget; the chart keeps running |
 | `Done` | discards the pending timers and the queued external events | learns that the chart stopped, with the top-level final's donedata |
 | `Child` | answers each effect an invoked child's execution answered, tagged with the child's `session_id`, a grandchild's with its own | reads the child's effects |
 

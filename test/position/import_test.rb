@@ -62,7 +62,7 @@ class PositionImportTest < Minitest::Test
   end
 
   # sabotage: register no type on import (pass `{}` to registered_types in
-  # Position.import); the assert_raises on the step fails.
+  # Position::Codec.import); the assert_raises on the step fails.
   def test_an_imported_state_refuses_processors_of_other_types
     chart = %(<state id="a"/>)
     exported = through_json(position(start(chart, processors: { "x" => Recorder.new }).state))
