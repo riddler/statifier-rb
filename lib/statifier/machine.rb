@@ -28,7 +28,9 @@ module Statifier
   # {Validator::Warning}s the chart was compiled with.
   #
   # Its shape is internal and may change in any release: a host passes a
-  # machine on and reads none of its members.
+  # machine on and reads one of its members only, `warnings`, the documented
+  # exception ({Statifier.compile} says what it holds). Every other member
+  # is private.
   #
   # @api private
   Machine = ::Data.define(
