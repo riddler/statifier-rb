@@ -4,6 +4,7 @@ require "predicator"
 
 require_relative "machine"
 require_relative "datamodel/reasons"
+require_relative "datamodel/reason_value"
 require_relative "datamodel/system_variables"
 require_relative "datamodel/stores"
 require_relative "datamodel/program"
@@ -25,10 +26,9 @@ module Statifier
   # `_event` is rewritten for every event.
   #
   # Nothing here raises on a failed evaluation. A failure is answered as a
-  # value carrying its reason, and the caller turns it into the
-  # `error.execution` platform event the reference raises
-  # ({ExecutionError}); the `<data>` binding ({DataBinding}) answers the
-  # events it raises itself.
+  # value carrying its reason, and the interpreter turns it into the
+  # `error.execution` platform event the reference raises (an {Event});
+  # the `<data>` binding ({DataBinding}) answers its failures the same way.
   #
   # @api private
   module Datamodel

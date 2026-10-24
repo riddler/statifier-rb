@@ -19,6 +19,8 @@ module Statifier
   # is no value at all.
   #
   # The vocabulary is internal until the driver fixes the public surface.
+  # Beside content's effects are the ones the interpreter's loop answers:
+  # {DatamodelInit}, {BudgetExhausted}, {Done} and the {Trace} effects.
   #
   # @api private
   module Effect
@@ -70,10 +72,84 @@ module Statifier
     # key or an Integer index per segment, the root first),
     # `location_source` the location as written, `new_value` and
     # `prior_value` the values at the path after and before. A write by
-    # content carries its `c_index` and `owner` and a nil `d_index`.
+    # content carries its `c_index` and `owner` and a nil `d_index`; a
+    # `<data>` that binds carries its `d_index`, its id as the one-segment
+    # path and the source, and a nil `c_index` and `owner`.
     DatamodelChange = ::Data.define(
       :location_path, :location_source, :new_value, :prior_value, :d_index, :c_index, :owner, :macrostep,
       :microstep, :round
     )
+
+    # The datamodel as the chart starts, before any `<data>` binds: the
+    # host's values, the system variables over them and every `<data>` id
+    # the host did not supply, declared undefined. Answered first when a
+    # chart starts.
+    DatamodelInit = ::Data.define(:datamodel, :macrostep, :microstep, :round)
+
+    # A macrostep spent its round budget without reaching a stable
+    # configuration: `configuration`, the state indexes active where the
+    # last round left them, in document order; `budget`, the budget spent (a
+    # count, or `:infinity`); and `pending_internal_events`, the {Event}s
+    # still queued, oldest first. The chart keeps running.
+    BudgetExhausted = ::Data.define(:configuration, :budget, :pending_internal_events, :macrostep, :microstep,
+                                    :round)
+
+    # The chart stopped. `donedata` is the top-level final's `<donedata>`
+    # (`Predicator::UNDEFINED` when it has none, or it failed), nil when no
+    # top-level final was active; `donedata_error`, the data of the first
+    # `error.execution` that folding it raised, else nil; and
+    # `configuration`, the state indexes active when it stopped, in document
+    # order. Answered last.
+    Done = ::Data.define(:donedata, :donedata_error, :configuration, :macrostep, :microstep, :round)
+
+    # The trace effects, ported field for field from the reference's
+    # (`Statifier.Effect.Trace.*`): diagnostics the loop answers only for a
+    # state started with `trace: true`, each stamped with the counters as
+    # they stood at the phase it reports. Configurations and index lists
+    # are frozen Arrays in the order the reference gives.
+    module Trace
+      # One selection round's written conditions, in walk order: each a
+      # `{t_index:, outcome:, reason:}` Hash, `outcome` `:enabled`,
+      # `:disabled` or `:error` (with its `reason`). Answered only when the
+      # round evaluated one.
+      CondsEvaluated = ::Data.define(:evaluations, :macrostep, :microstep, :round)
+
+      # A block of content ran: its `owner` (a content owner, or
+      # `{kind: :global_script, index:}` for a `<script>` child of
+      # `<scxml>`) and `c_indexes`, the nodes that ran, the failing one
+      # included.
+      ContentExecuted = ::Data.define(:owner, :c_indexes, :macrostep, :microstep, :round)
+
+      # The chart stopped: {Effect::Done}'s fields, just before it.
+      Done = ::Data.define(:donedata, :donedata_error, :configuration, :macrostep, :microstep, :round)
+
+      # The states a microstep enters, in entry order (`indexes`), and the
+      # `configuration` once they have entered.
+      EntrySet = ::Data.define(:indexes, :configuration, :macrostep, :microstep, :round)
+
+      # An {Event} was taken, `from` `:external` or `:internal`.
+      EventDequeued = ::Data.define(:event, :from, :macrostep, :microstep, :round)
+
+      # The states a microstep exits (or the chart's stop leaves), in exit
+      # order (`indexes`), and the `configuration` once they have left.
+      ExitSet = ::Data.define(:indexes, :configuration, :macrostep, :microstep, :round)
+
+      # The pass over live invocations an external event makes before
+      # selection: the `event`, the invoke ids `finalized` and those
+      # `forwarded` to.
+      FinalizeAutoforward = ::Data.define(:event, :finalized, :forwarded, :macrostep, :microstep, :round)
+
+      # The invoke pass at the end of a stable macrostep: the states it
+      # walked (`state_indexes`, entry order) and the `invoke_ids` it
+      # started.
+      InvokePass = ::Data.define(:state_indexes, :invoke_ids, :macrostep, :microstep, :round)
+
+      # A macrostep reached a stable configuration with the chart running.
+      MacrostepStable = ::Data.define(:configuration, :macrostep, :microstep, :round)
+
+      # A selection: the `t_indexes` it took (empty included) and the
+      # `event` it selected on, nil for an eventless round.
+      TransitionsSelected = ::Data.define(:t_indexes, :event, :macrostep, :microstep, :round)
+    end
   end
 end

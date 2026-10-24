@@ -196,12 +196,18 @@ block of executable content against one datamodel context, stops at the
 first node that fails, and answers the datamodel it leaves, its effects
 (`Statifier::Effect`, plain data values) and the events it raised, for
 the step to queue; every `<send>` is an effect, and the core delivers and
-schedules nothing.
-The 2019 stub is gone. The
-step loop that runs them and the driver arrive with later changes; until
-they do, the
-sentences in this file about them describe the target, not the current tree,
-and the registry claims no case.
+schedules nothing. Over them all is the interpreter's loop,
+`Statifier::Interpreter::Loop` (with `Interpreter::Step`,
+`Interpreter::Blocks`, `Interpreter::Macrostep` and `Interpreter::Stop`),
+internal too: the specification's microstep, macrostep and main event loop
+over an immutable machine state (`Interpreter::MachineState`), entered by
+starting a chart, by handling one external event and by delivering one
+internal event. Each answers the state it leaves, which carries the
+counters and the round budget a macrostep spends, and its effects; the
+events on its queues are one value, `Statifier::Event`.
+The 2019 stub is gone. The driver a host steps a chart with arrives with a
+later change; until it does, the sentences in this file about it describe
+the target, not the current tree, and the registry claims no case.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
   no statechart code; the stub stays installable from rubygems.org.

@@ -84,7 +84,7 @@ does not name (at every object the schema closes), hands every case to the
 drive, requires every case this registry claims to pass, and prints per
 suite how many cases are not yet claimed. The drive (`Conformance::Drive` in
 `test/conformance/runner.rb`) is the one place the interpreter is plugged
-into the run. This package has no interpreter yet, so today the drive
+into the run. This package has no driver yet, so today the drive
 answers every case with the reason that it is not driven, the run passes
 nothing, and every case is unclaimed.
 

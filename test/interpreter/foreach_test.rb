@@ -44,7 +44,7 @@ class ForeachTest < Minitest::Test
   def test_an_item_that_is_not_a_bare_name_stops_the_block
     outcome = run_block(%(<foreach array="l" item="1bad"><raise event="never"/></foreach><raise event="never2"/>))
 
-    assert_equal [F::IllegalItemName.new(name: "1bad")], reasons(outcome)
+    assert_equal [rv(F::IllegalItemName.new(name: "1bad"))], reasons(outcome)
     refute outcome.context.data.key?("1bad")
   end
 
@@ -53,7 +53,7 @@ class ForeachTest < Minitest::Test
   def test_an_index_that_is_not_a_bare_name_stops_the_block
     outcome = run_block(%(<foreach array="l" item="it" index="i-x"><raise event="never"/></foreach>))
 
-    assert_equal [F::IllegalIndexName.new(name: "i-x")], reasons(outcome)
+    assert_equal [rv(F::IllegalIndexName.new(name: "i-x"))], reasons(outcome)
     refute outcome.context.data.key?("it")
   end
 
@@ -62,7 +62,7 @@ class ForeachTest < Minitest::Test
   def test_an_item_naming_a_system_variable_stops_the_block
     outcome = run_block(%(<foreach array="l" item="_x"><raise event="never"/></foreach>))
 
-    assert_equal [DM::SystemVariable.new(root: "_x")], reasons(outcome)
+    assert_equal [rv(DM::SystemVariable.new(root: "_x"))], reasons(outcome)
   end
 
   # sabotage: answer evaluated.value whatever it is in Foreach.iterated; the
@@ -70,7 +70,7 @@ class ForeachTest < Minitest::Test
   def test_an_array_that_is_not_a_list_stops_the_block
     outcome = run_block(%(<foreach array="m" item="it"><raise event="never"/></foreach>))
 
-    assert_equal [F::NotIterable.new(value: { "a" => 1 })], reasons(outcome)
+    assert_equal [rv(F::NotIterable.new(value: { "a" => 1 }))], reasons(outcome)
   end
 
   # sabotage: answer [] in place of evaluated.error in Foreach.iterated; the
@@ -79,7 +79,7 @@ class ForeachTest < Minitest::Test
     outcome = run_block(%(<foreach array="nope" item="it"><raise event="never"/></foreach><raise event="never2"/>))
 
     assert_equal ["error.execution"], raised_names(outcome)
-    assert_instance_of DM::EvaluatorError, outcome.raised.first.reason
+    assert_equal "evaluator_error", outcome.raised.first.data["kind"]
   end
 
   # sabotage: answer [run, reason] in place of [after, reason] on the break
@@ -94,6 +94,6 @@ class ForeachTest < Minitest::Test
     assert_equal 2, outcome.context.data["x"]
     assert_empty outcome.effects
     inner = C::NestedContent.new(c_index: 3, reason: DM::UnboundLocation.new(location: "zz"))
-    assert_equal [C::NestedContent.new(c_index: 2, reason: inner)], reasons(outcome)
+    assert_equal [rv(C::NestedContent.new(c_index: 2, reason: inner))], reasons(outcome)
   end
 end

@@ -14,7 +14,9 @@ require_relative "statifier/interpreter"
 # {Statifier.compile} reads SCXML source into a machine, through the reader
 # ({Statifier::XML}), the lowering ({Statifier::Lowering}), the validator
 # ({Statifier::Validator}) and the compiler ({Statifier::Compiler}), all
-# internal. The interpreter that steps a machine arrives with later changes.
+# internal. The interpreter that steps a machine ({Statifier::Interpreter})
+# is internal too; the driver a host steps a chart with arrives with a later
+# change.
 module Statifier
   # What {Statifier.compile} answers: the compiled machine as `value`, or,
   # as `error`, every refusal of the first stage that refused.

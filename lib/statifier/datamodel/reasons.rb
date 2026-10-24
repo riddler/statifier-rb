@@ -84,20 +84,5 @@ module Statifier
     #
     # @api private
     SrcValue = ::Data.define(:src)
-
-    # The `error.execution` platform event a failure raises: `origin` names
-    # the node it is about (for a `<data>`, `{kind: :data, d_index:}`) and
-    # `reason` is its data. The interpreter stamps the counters and queues
-    # it.
-    #
-    # @api private
-    ExecutionError = ::Data.define(:origin, :reason) do
-      # @return [String] the event's name
-      def name = "error.execution"
-
-      # @return [Symbol] the event's type: a platform event, as every
-      #   `error.*` is
-      def type = :platform
-    end
   end
 end

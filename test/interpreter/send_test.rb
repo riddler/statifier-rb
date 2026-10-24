@@ -88,7 +88,7 @@ class SendTest < Minitest::Test
 
     assert_empty outcome.effects
     assert_equal ["error.execution"], raised_names(outcome)
-    assert_instance_of DM::EvaluatorError, outcome.raised.first.reason
+    assert_equal "evaluator_error", outcome.raised.first.data["kind"]
   end
 
   # sabotage: answer Datamodel.evaluate(context, delay) without the
@@ -96,7 +96,7 @@ class SendTest < Minitest::Test
   def test_a_delay_that_is_not_a_duration_discards_the_send
     outcome = run_block(%(<send event="a" delayexpr="5" idlocation="s"/>))
 
-    assert_equal [DM::InvalidDelay.new(value: 5)], reasons(outcome)
+    assert_equal [rv(DM::InvalidDelay.new(value: 5))], reasons(outcome)
     assert_equal ["hello", 0], [outcome.context.data["s"], outcome.sends.send_counter]
   end
 
@@ -108,8 +108,8 @@ class SendTest < Minitest::Test
     error = outcome.raised.last
 
     assert_empty outcome.effects
-    assert_equal ["error.execution", origin(0), T::InvalidTarget.new(target: "nowhere"), "send_1"],
-                 [error.name, error.origin, error.reason, error.sendid]
+    assert_equal ["error.execution", origin(0), rv(T::InvalidTarget.new(target: "nowhere")), "send_1"],
+                 [error.name, *origin_and_data(error), error.sendid]
     assert_equal "send_1", outcome.context.data["s"]
   end
 
@@ -118,8 +118,8 @@ class SendTest < Minitest::Test
   def test_an_unsupported_type_is_refused_as_error_execution
     outcome = run_block(%(<send event="a" type="x-custom"/>))
 
-    assert_equal([["error.execution", T::UnsupportedType.new(type: "x-custom")]],
-                 outcome.raised.map { [_1.name, _1.reason] })
+    assert_equal([["error.execution", rv(T::UnsupportedType.new(type: "x-custom"))]],
+                 outcome.raised.map { [_1.name, _1.data] })
   end
 
   # sabotage: answer `"error.execution"` for every kind in
@@ -129,8 +129,8 @@ class SendTest < Minitest::Test
                         sends(routes: routes(sessions: ["other"])))
 
     assert_equal ["send_1"], outcome.effects.map(&:send_id)
-    assert_equal([["error.communication", T::UnreachableTarget.new(target: "#_scxml_gone"), "send_2"]],
-                 outcome.raised.map { [_1.name, _1.reason, _1.sendid] })
+    assert_equal([["error.communication", rv(T::UnreachableTarget.new(target: "#_scxml_gone")), "send_2"]],
+                 outcome.raised.map { [_1.name, _1.data, _1.sendid] })
   end
 
   # sabotage: drop `!delay_ms.nil? ||` from Targets.target_reason; the

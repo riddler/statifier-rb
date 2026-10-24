@@ -29,7 +29,8 @@ class SelectionTest < Minitest::Test
     assert_equal [["c", ["d"]]], taken
   end
 
-  # sabotage: answer true when evaluated.ok? in Selection.enabled?; the
+  # sabotage: answer evaluated.ok? in place of evaluated.ok? &&
+  # evaluated.value in Selection.enabled?; the
   # assert_equal on the second transition fails.
   def test_a_false_condition_passes_to_the_next_transition
     chart = machine(<<~XML)
@@ -47,19 +48,19 @@ class SelectionTest < Minitest::Test
     <state id="b"/><state id="c"/>
   XML
 
-  # sabotage: skip the raised << in Selection.enabled?; the assert_equal on
-  # the raised origins fails.
-  def test_failed_conditions_raise_error_execution_in_walk_order
+  # sabotage: skip the evaluations << in Selection.enabled?; the
+  # assert_equal on the evaluations fails.
+  def test_written_conditions_are_recorded_in_walk_order_with_their_outcome
     chart = machine(FAILING)
-    raised = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).raised
-    origins = chart.state(at(chart, "a")).transitions.first(2).map { { kind: :transition, t_index: _1 } }
+    evaluations = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).evaluations
+    t_indexes = chart.state(at(chart, "a")).transitions.first(2)
 
-    assert_equal(origins.map { ["error.execution", _1] }, raised.map { [_1.name, _1.origin] })
+    assert_equal(t_indexes.zip(%i[error error]), evaluations.map { [_1.t_index, _1.outcome] })
   end
 
-  # sabotage: answer true in place of false after the raise in
-  # Selection.enabled?; the assert_equal on c fails, as the failing one is
-  # taken.
+  # sabotage: answer !evaluated.ok? || evaluated.value in place of
+  # evaluated.ok? && evaluated.value in Selection.enabled?; the assert_equal
+  # on c fails, as the failing one is taken.
   def test_a_transition_whose_condition_failed_is_not_taken
     chart = machine(FAILING)
     taken = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).transitions
@@ -67,11 +68,12 @@ class SelectionTest < Minitest::Test
     assert_equal([["c"]], taken.map { ids(chart, _1.targets) })
   end
 
-  # sabotage: build the ExecutionError with reason: nil in
-  # Selection.enabled?; the assert_instance_of on the first reason fails.
+  # sabotage: build the error Evaluation with reason: nil in
+  # Selection.evaluation; the assert_instance_of on the first reason fails.
   def test_a_failed_condition_carries_its_reason
     chart = machine(FAILING)
-    reasons = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).raised.map(&:reason)
+    evaluations = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).evaluations
+    reasons = evaluations.select { _1.outcome == :error }.map(&:reason)
 
     assert_instance_of Statifier::Datamodel::EvaluatorError, reasons.first
     assert_equal Statifier::Datamodel::NonBooleanCond.new(value: 1), reasons.last
@@ -108,7 +110,7 @@ class SelectionTest < Minitest::Test
     selected = S.select_transitions(snapshot(chart, "p", "c"), "ee.go", data(chart))
 
     assert_empty selected.transitions
-    assert_empty selected.raised
+    assert_empty selected.evaluations
   end
 
   # sabotage: drop the .uniq(&:t_index) in Selection.round; the

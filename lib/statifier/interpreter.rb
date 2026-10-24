@@ -3,6 +3,7 @@
 require_relative "machine"
 require_relative "datamodel"
 require_relative "effect"
+require_relative "event"
 
 module Statifier
   # The interpreter's algorithm, ported function for function from the
@@ -11,14 +12,17 @@ module Statifier
   # {NameMatch}), what those transitions enter ({Entering}), and which
   # states they leave and enter, in order ({ExitEntry}); and what a block of
   # executable content does ({Content}, with `<send>` and `<cancel>` in
-  # {Send}).
+  # {Send}); and the loop over them ({Loop}, with {Step}, {Blocks},
+  # {Macrostep} and {Stop}), which starts a chart, takes an event and runs
+  # each macrostep over a {MachineState}.
   #
   # Every function here is pure over plain values: a machine, a
   # configuration, the recorded history, and, where an expression is
-  # evaluated, the datamodel. None of them moves a queue or keeps state; each
-  # answers what the step that calls it needs as a frozen value (the
-  # datamodel a block leaves, its effects and the events it raised
-  # included), and the step does the rest.
+  # evaluated, the datamodel. Below the loop none of them moves a queue or
+  # keeps state; each answers what the step that calls it needs as a frozen
+  # value (the datamodel a block leaves, its effects and the events it raised
+  # included). The loop threads one {MachineState} through them and answers
+  # the state it leaves, never changing the one it was given.
   #
   # @api private
   module Interpreter
@@ -43,3 +47,9 @@ require_relative "interpreter/targets"
 require_relative "interpreter/send"
 require_relative "interpreter/content"
 require_relative "interpreter/foreach"
+require_relative "interpreter/machine_state"
+require_relative "interpreter/blocks"
+require_relative "interpreter/step"
+require_relative "interpreter/macrostep"
+require_relative "interpreter/stop"
+require_relative "interpreter/loop"

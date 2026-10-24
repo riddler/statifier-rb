@@ -13,9 +13,9 @@ module Conformance
   # fail naming the exception: a case is never skipped and never aborts the
   # run.
   #
-  # This package has no compiler, interpreter or driver yet, so the drive
-  # answers every case with the same reason and the run passes nothing. The
-  # change that brings them replaces the body of Drive.call with the drive
+  # This package has no driver yet, so the drive answers every case with the
+  # same reason and the run passes nothing. The change that brings it
+  # replaces the body of Drive.call with the drive
   # the copy's RATCHET.md describes under "What a case asserts": compile the
   # case's source, start it and compare the active leaf states with
   # initial_configuration, then send each step's event and compare with the
@@ -23,7 +23,7 @@ module Conformance
   # position, what RATCHET.md says the runner honours there).
   module Drive
     # The reason every case fails while nothing drives it.
-    NOT_DRIVEN = "not driven: this package has no interpreter yet"
+    NOT_DRIVEN = "not driven: this package has no driver yet"
 
     # The answer for item: :pass, or the reason it failed.
     def self.call(_item) = NOT_DRIVEN

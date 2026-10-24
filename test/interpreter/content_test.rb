@@ -9,13 +9,13 @@ require_relative "content_helper"
 class ContentTest < Minitest::Test
   include ContentHelper
 
-  # sabotage: build the Raised with name: "x" in Content.raise_event; the
+  # sabotage: build the Event with name "x" in Content.raise_event; the
   # assert_equal on the names fails.
   def test_raise_queues_an_internal_event_naming_its_node
     outcome = run_block(%(<raise event="e.one"/><raise event="e.two"/>))
 
     assert_equal([["e.one", :internal, origin(0)], ["e.two", :internal, origin(1)]],
-                 outcome.raised.map { [_1.name, _1.type, _1.origin] })
+                 outcome.raised.map { [_1.name, _1.type, _1.cause.origin] })
   end
 
   # sabotage: pass value: nil to Effect::Log.new in Content.log; the
@@ -35,8 +35,8 @@ class ContentTest < Minitest::Test
     outcome = run_block(%(<log expr="1"/><log expr="nope"/><raise event="never"/>))
 
     assert_equal [1], outcome.effects.map(&:value)
-    assert_equal([["error.execution", origin(1)]], outcome.raised.map { [_1.name, _1.origin] })
-    assert_instance_of DM::EvaluatorError, outcome.raised.first.reason
+    assert_equal([["error.execution", origin(1)]], outcome.raised.map { [_1.name, _1.cause.origin] })
+    assert_equal "evaluator_error", outcome.raised.first.data["kind"]
   end
 
   # sabotage: pass new_value: nil to Content.change in Content.assign; the
@@ -57,7 +57,7 @@ class ContentTest < Minitest::Test
     outcome = run_block(%(<raise event="a"/><assign location="zz" expr="1"/><raise event="b"/>))
 
     assert_equal %w[a error.execution], raised_names(outcome)
-    assert_equal DM::UnboundLocation.new(location: "zz"), outcome.raised.last.reason
+    assert_equal rv(DM::UnboundLocation.new(location: "zz")), outcome.raised.last.data
     refute outcome.context.data.key?("zz")
     assert_equal [0, 1], outcome.executed
   end
@@ -90,8 +90,8 @@ class ContentTest < Minitest::Test
     XML
 
     assert_equal %w[three error.execution error.execution after], raised_names(outcome)
-    assert_equal [origin(0), origin(0)], outcome.raised[1, 2].map(&:origin)
-    assert_equal DM::NonBooleanCond.new(value: 5), outcome.raised[2].reason
+    assert_equal [origin(0), rv(DM::NonBooleanCond.new(value: 5))], origin_and_data(outcome.raised[2])
+    assert_equal origin(0), outcome.raised[1].cause.origin
   end
 
   # sabotage: answer [after, reason] in place of [after.with(effects:
@@ -105,7 +105,7 @@ class ContentTest < Minitest::Test
 
     assert_equal [E::Log], outcome.effects.map(&:class)
     assert_equal [%w[in error.execution], 3], [raised_names(outcome), outcome.context.data["x"]]
-    assert_equal [origin(1), nested_at(5)], outcome.raised.last.to_h.values_at(:origin, :reason)
+    assert_equal [origin(1), rv(nested_at(5))], origin_and_data(outcome.raised.last)
   end
 
   # sabotage: answer [run, reason] unwrapped in Content.nested; the
@@ -114,7 +114,7 @@ class ContentTest < Minitest::Test
     outcome = run_block(%(<if cond="true"><if cond="true"><assign location="zz" expr="0"/></if></if>))
     inner = C::NestedContent.new(c_index: 2, reason: DM::UnboundLocation.new(location: "zz"))
 
-    assert_equal C::NestedContent.new(c_index: 1, reason: inner), outcome.raised.last.reason
+    assert_equal rv(C::NestedContent.new(c_index: 1, reason: inner)), outcome.raised.last.data
   end
 
   # sabotage: drop `break ran if failed` in Content.execute_block; the
