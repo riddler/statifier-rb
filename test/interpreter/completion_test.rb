@@ -9,7 +9,7 @@ require_relative "interpreter_helper"
 class CompletionTest < Minitest::Test
   include InterpreterHelper
 
-  X = Statifier::Interpreter::ExitEntry
+  X = Internals::Interpreter::ExitEntry
 
   CHART = <<~XML
     <state id="go">

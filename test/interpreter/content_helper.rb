@@ -8,8 +8,8 @@ require_relative "interpreter_helper"
 module ContentHelper
   include InterpreterHelper
 
-  C = Statifier::Interpreter::Content
-  DM = Statifier::Datamodel
+  C = Internals::Interpreter::Content
+  DM = Internals::Datamodel
   E = Statifier::Effect
   OWNER = { kind: :onentry, state_index: 1, ordinal: 0 }.freeze
   DATAMODEL = <<~XML
@@ -31,7 +31,7 @@ module ContentHelper
 
   # body run as one block with a and the root active.
   # `with` overrides the stamp's fields and `host` is the host's datamodel.
-  def run_block(body, sends = Statifier::Interpreter::Send::SendState::INITIAL, with: {}, host: {})
+  def run_block(body, sends = Internals::Interpreter::Send::SendState::INITIAL, with: {}, host: {})
     chart = content_machine(body)
     C.execute_block(DM.context(bound(chart, host), chart, [0, 1]), chart.state(1).onentry.first.content,
                     stamp.with(**with), sends)

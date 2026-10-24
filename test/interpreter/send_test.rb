@@ -8,8 +8,8 @@ require_relative "content_helper"
 class SendTest < Minitest::Test
   include ContentHelper
 
-  S = Statifier::Interpreter::Send
-  T = Statifier::Interpreter::Targets
+  S = Internals::Interpreter::Send
+  T = Internals::Interpreter::Targets
   FIELDS = { owner: OWNER, macrostep: 2, microstep: 3, round: 4 }.freeze
 
   def sends(**fields) = S::SendState::INITIAL.with(**fields)

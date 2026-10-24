@@ -18,10 +18,10 @@ module Statifier
       def state(machine, position, datamodel, types)
         session_id = datamodel[SESSION_ID]
         machine_state = machine_state(machine, position, datamodel, types, session_id)
-        Driver::State.new(machine_state:, session_id:, now_ms: 0, timers: [].freeze, timer_sequence: 0,
-                          external_queue: [].freeze, held_sends: {}.freeze, halted: nil, done: done(machine_state),
-                          send_types: types, invocations: {}.freeze, mailbox: [].freeze, invoked_as: nil,
-                          cancelled: false)
+        DRIVER_STATE.new(machine_state:, session_id:, now_ms: 0, timers: [].freeze, timer_sequence: 0,
+                         external_queue: [].freeze, held_sends: {}.freeze, halted: nil, done: done(machine_state),
+                         send_types: types, invocations: {}.freeze, mailbox: [].freeze, invoked_as: nil,
+                         cancelled: false)
       end
 
       # The interpreter's position. The root is active whenever any state
@@ -58,7 +58,7 @@ module Statifier
       def sends(position, types, session_id)
         Interpreter::Send::SendState.new(
           send_counter: position["send_counter"], timer_counter: position["timer_counter"],
-          send_types: (types unless types.empty?), routes: Driver::Calls.own_routes(session_id)
+          send_types: (types unless types.empty?), routes: DRIVER_CALLS.own_routes(session_id)
         )
       end
 

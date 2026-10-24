@@ -102,10 +102,10 @@ module Statifier
 
       # The {Effect::Invoke}.
       def effect(state, invoke, fields)
-        Effect.frozen_copy(Effect::Invoke.new(
-                             **fields.slice(:invoke_id, :type, :src, :params, :content, :state_index, :invoke_index),
-                             autoforward: invoke.autoforward, **state.counters, caller_context: state.caller_context
-                           ))
+        Frozen.copy(Effect::Invoke.new(
+                      **fields.slice(:invoke_id, :type, :src, :params, :content, :state_index, :invoke_index),
+                      autoforward: invoke.autoforward, **state.counters, caller_context: state.caller_context
+                    ))
       end
 
       # The `idlocation` write's {Effect::DatamodelChange}, when there was
@@ -121,10 +121,10 @@ module Statifier
       # :invoke, ...}`) or by its empty `<finalize>` (`{kind: :finalize,
       # ...}`).
       def change(state, write, source, value, owner)
-        Effect.frozen_copy(Effect::DatamodelChange.new(
-                             location_path: write.path, location_source: source, new_value: value,
-                             prior_value: write.prior_value, d_index: nil, c_index: nil, owner:, **state.counters
-                           ))
+        Frozen.copy(Effect::DatamodelChange.new(
+                      location_path: write.path, location_source: source, new_value: value,
+                      prior_value: write.prior_value, d_index: nil, c_index: nil, owner:, **state.counters
+                    ))
       end
 
       # `generate_invoke_id`: the author's id, which consumes no counter;

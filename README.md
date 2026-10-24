@@ -159,14 +159,14 @@ Statifier.advance(lapsed.value.state, -1).error # => :invalid_duration
 ```
 
 `Statifier.compile` answers the list of refusals of the first of four stages
-that refused the source: the XML reader (`Statifier::XML::ParseError`), the
-lowering (`Statifier::Lowering::Error`), the validator
-(`Statifier::Validator::Error`) and the compiler (`Statifier::Compiler::Error`,
-when predicator refuses an expression). Each carries a `reason` symbol, a
-`message` for a person and a `location`, the span of the source it names:
+that refused the source: the XML reader, the lowering, the validator and the
+compiler (when predicator refuses an expression). Their classes are internal.
+Each refusal carries a `reason` symbol, a `message` for a person and a
+`location`, the span of the source it names (`start_line`, `start_column`,
+`start_offset`, `end_line`, `end_column` and `end_offset`); all but the
+reader's carry a `detail` Hash too:
 
 ```ruby
-Statifier.compile("<scxml>").error.first.class # => Statifier::XML::ParseError
 Statifier.compile("<scxml>").error.first.reason # => :unclosed_element
 
 unresolved = Statifier.compile(<<~SCXML)
@@ -174,7 +174,6 @@ unresolved = Statifier.compile(<<~SCXML)
     <state id="a"><transition event="e.go" target="zz"/></state>
   </scxml>
 SCXML
-unresolved.error.first.class # => Statifier::Validator::Error
 unresolved.error.first.reason # => :unresolved_target
 
 badcond = Statifier.compile(<<~SCXML)
@@ -182,7 +181,6 @@ badcond = Statifier.compile(<<~SCXML)
     <state id="a"><transition event="e.go" cond="1 +" target="a"/></state>
   </scxml>
 SCXML
-badcond.error.first.class # => Statifier::Compiler::Error
 badcond.error.first.reason # => :expression_compile_error
 ```
 
@@ -199,24 +197,40 @@ register other send types than the chart started with.
 Every effect a call answers is a frozen `Data` value under `Statifier::Effect`,
 named for what the host does with it. The reference's vocabulary is ported
 field for field, and each effect carries the `macrostep`, `microstep` and
-`round` counters as they stood when it was made. The ones a host most often
-reads:
+`round` counters as they stood when it was made. Every effect the chart's
+runs answered is among the call's effects, in the order made, whatever the
+driver did with it:
 
-| Effect | What the host does with it |
-|---|---|
-| `Send` | delivers the event now, by its `target` and `type` |
-| `SendDelayed` | learns of an event due later; the driver holds it as a pending timer until `advance` reaches it |
-| `Cancel` | learns that the pending delayed send its `send_id` names is dropped |
-| `Log` | records the label and the evaluated value |
-| `DatamodelInit`, `DatamodelChange` | learns the datamodel as the chart starts, and each write after |
-| `Invoke`, `CancelInvoke`, `Autoforward` | learns of an invocation the core starts, stops or forwards an event to |
-| `BudgetExhausted` | learns that a macrostep spent its round budget; the chart keeps running |
-| `Done` | learns that the chart stopped, with the top-level final's donedata |
-| `Child` | wraps an effect an invoked child's execution answered, with the child's `session_id` |
+| Effect | What the driver does | What the host does with it |
+|---|---|---|
+| `Send` of a type the host registered | hands it to that type's processor, `deliver` | delivers it, in its processor |
+| `Send` of the SCXML type, or none | routes it by its `target`: to the chart's own external queue, its internal queue, its parent or a live child | reads it, if it wants a record |
+| `SendDelayed` of a type the host registered | hands it to that type's processor, which holds it | schedules it, in its processor |
+| `SendDelayed` of the SCXML type, or none | holds it as a pending timer until `advance` reaches it | learns of an event due later |
+| a send of any other type | nothing: the chart refuses it with `error.execution`, and no effect is answered | nothing |
+| `Cancel` | drops every pending timer under its `send_id`, and tells a processor holding a delayed send under it, once | learns that the delayed send is dropped |
+| `Invoke`, `CancelInvoke`, `Autoforward` | runs an invocation of the SCXML type in process as a child session, stops it, or forwards an event to it; any other type raises `error.execution` | learns of an invocation the core starts, stops or forwards an event to |
+| `Log` | nothing | records the label and the evaluated value |
+| `DatamodelInit`, `DatamodelChange` | nothing | learns the datamodel as the chart starts, and each write after |
+| `BudgetExhausted` | queues later external events without taking them; timers still fire | learns that a macrostep spent its round budget; the chart keeps running |
+| `Done` | discards the pending timers and the queued external events | learns that the chart stopped, with the top-level final's donedata |
+| `Child` | answers each effect an invoked child's execution answered, tagged with the child's `session_id`, a grandchild's with its own | reads the child's effects |
+
+An error is never an effect: `error.execution` and `error.communication` are
+events the chart takes from its internal queue, which a host sees in what the
+chart does next, or as a `Trace::EventDequeued` effect for a chart started with
+`trace: true`.
 
 The `Trace` effects follow the interpreter step by step and are answered only
 for a chart started with `trace: true`. An event is a `Statifier::Event`, the
 one value every queue holds.
+
+The surface is fixed: the ten calls, the values above and below, and, after
+`require "statifier/basichttp"`, the Basic HTTP processor's. Every other
+constant in the gem is private, and `test/surface_test.rb` lists the public
+surface whole, failing on an addition or a removal. A value whose class is
+private, such as the machine, a driver state or a compile refusal, is read by
+its documented members.
 
 The driver delivers nothing itself that leaves the process. A send of a type
 the host registers is handed to the host's processor, an object that answers
@@ -570,8 +584,9 @@ needs and whether it passes or why it fails.
 
 - Look up
   - Every public method and class carries a YARD doc comment in `lib/`:
-    the `Statifier` module's eight calls and `Statifier::Result`, the driver's
-    values (`Statifier::Driver::Moved` and `DoneStatus`), `Statifier::Effect`,
+    the `Statifier` module's ten calls, `Statifier::Result` and
+    `Statifier::AcceptsCheck`, the driver's values (`Statifier::Driver::Moved`,
+    `DoneStatus`, `Context` and `DeliveryFailure`), `Statifier::Effect`,
     `Statifier::Event` and `Statifier::Position`, and under
     `Statifier::BasicHTTP` the processor, its failure, the decoder and its
     refusal, and the HTTP transport's request, response, error and default

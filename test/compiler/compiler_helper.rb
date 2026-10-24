@@ -27,7 +27,7 @@ module CompilerHelper
 
   # One compiler refusal as a row; it must be the compiler's.
   def refusal_row(error)
-    assert_instance_of Statifier::Compiler::Error, error
+    assert_instance_of Internals::Compiler::Error, error
     [error.reason, *error.detail.values_at(:owner, :element, :attribute, :source),
      error.location.start_line, error.location.start_column]
   end

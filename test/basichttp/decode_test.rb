@@ -46,7 +46,7 @@ class BasicHTTPDecodeTest < Minitest::Test
     end
   end
 
-  # sabotage: answer the event unfrozen (drop Effect.frozen_copy) in Decode.event; the shareable assertion fails.
+  # sabotage: answer the event unfrozen (drop Frozen.copy) in Decode.event; the shareable assertion fails.
   def test_the_event_is_deeply_frozen
     assert Ractor.shareable?(decode(body: "a=%5B1%5D").value)
   end

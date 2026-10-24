@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module DatamodelHelper
-  D = Statifier::Datamodel
+  D = Internals::Datamodel
   U = Predicator::UNDEFINED
   ROOT = %(xmlns="http://www.w3.org/2005/07/scxml" version="1.0")
 
@@ -19,9 +19,9 @@ module DatamodelHelper
     D.context(data, machine, configuration, clock:)
   end
 
-  def compiled(source) = Statifier::Machine::Compiled.new(instructions: Predicator.compile!(source), source:)
+  def compiled(source) = Internals::Machine::Compiled.new(instructions: Predicator.compile!(source), source:)
 
-  def program(source) = Statifier::Machine::Program.new(instructions: Predicator.compile_program!(source), source:)
+  def program(source) = Internals::Machine::Program.new(instructions: Predicator.compile_program!(source), source:)
 
   # A datamodel's author roots: the system variables left out.
   def authored(data) = data.reject { |root, _value| root.start_with?("_") }

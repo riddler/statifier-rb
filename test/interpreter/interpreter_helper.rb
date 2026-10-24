@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module InterpreterHelper
-  I = Statifier::Interpreter
+  I = Internals::Interpreter
   ROOT = %(xmlns="http://www.w3.org/2005/07/scxml" version="1.0")
 
   # The machine of a chart around body; the compile must succeed.
@@ -31,7 +31,7 @@ module InterpreterHelper
   def transitions_of(machine, id) = machine.state(at(machine, id)).transitions.map { machine.transitions.fetch(_1) }
 
   # The datamodel conditions run against: the system variables over host.
-  def data(machine, host = {}) = Statifier::Datamodel::SystemVariables.seed(host, session_id: "sid", name: machine.name)
+  def data(machine, host = {}) = Internals::Datamodel::SystemVariables.seed(host, session_id: "sid", name: machine.name)
 
   # The ids the transitions of a selection round leave from.
   def sources(machine, transitions) = transitions.map { machine.state(_1.source).id }

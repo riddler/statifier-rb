@@ -50,12 +50,12 @@ class ValidatorDataTest < Minitest::Test
   # context.invoke_content_markup` on the version guard in
   # Enums.boilerplate); the assert_equal under the option fails.
   def test_the_root_is_in_the_scxml_namespace_at_version_one
-    prefixed = %(<s:scxml xmlns:s="#{Statifier::Lowering::SCXML_NAMESPACE}" version="1.0"><s:state id="a"/></s:scxml>)
+    prefixed = %(<s:scxml xmlns:s="#{Internals::Lowering::SCXML_NAMESPACE}" version="1.0"><s:state id="a"/></s:scxml>)
 
     assert_equal [[:bad_namespace, { uri: nil }, 1, 1], [:bad_version, { version: nil }, 1, 1]],
                  errors_of(%(<scxml><state id="a"/></scxml>))
     assert_equal [[:bad_version, { version: "2.0" }, 1, 57]],
-                 errors_of(%(<scxml xmlns="#{Statifier::Lowering::SCXML_NAMESPACE}" version="2.0"/>))
+                 errors_of(%(<scxml xmlns="#{Internals::Lowering::SCXML_NAMESPACE}" version="2.0"/>))
     assert_empty errors_of(prefixed)
     assert_empty errors_of(%(<scxml version="1.0"/>), invoke_content_markup: true)
     assert_equal [[:bad_version, { version: "2" }, 1, 17]],

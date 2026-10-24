@@ -7,7 +7,7 @@ require_relative "content_helper"
 class EffectTest < Minitest::Test
   include ContentHelper
 
-  # sabotage: append `effect` itself in place of Effect.frozen_copy(effect)
+  # sabotage: append `effect` itself in place of Frozen.copy(effect)
   # in Content::Run#effect; the assert_equal fails.
   def test_every_effect_a_block_answers_is_deeply_frozen
     outcome = run_block(<<~XML)
@@ -19,7 +19,7 @@ class EffectTest < Minitest::Test
   end
 
   # sabotage: append the events themselves in place of their
-  # Effect.frozen_copy in Content::Run#raise_events; the assert_equal fails.
+  # Frozen.copy in Content::Run#raise_events; the assert_equal fails.
   def test_every_event_a_block_raises_is_deeply_frozen
     outcome = run_block(%(<raise event="r"/><log expr="nope"/>))
 
@@ -27,7 +27,7 @@ class EffectTest < Minitest::Test
   end
 
   # sabotage: answer Ractor.make_shareable(value) for every value in
-  # Effect.frozen_copy; the first assert_equal fails, as the host's hash
+  # Frozen.copy; the first assert_equal fails, as the host's hash
   # is frozen in place.
   def test_the_host_s_caller_context_is_carried_as_the_same_object_and_never_frozen
     context = { "token" => +"abc", "list" => [1] }
@@ -38,7 +38,7 @@ class EffectTest < Minitest::Test
     assert_equal([true, true], outcome.effects.map { Ractor.shareable?(_1.with(caller_context: nil)) })
   end
 
-  # sabotage: drop the caller_context line of Effect.frozen_copy (answer
+  # sabotage: drop the caller_context line of Frozen.copy (answer
   # Ractor.make_shareable(value, copy: true) for every value); the
   # assert_equal fails, as the block raises in place of answering.
   def test_a_caller_context_that_cannot_be_shared_is_carried_without_raising
@@ -53,7 +53,7 @@ class EffectTest < Minitest::Test
   end
 
   # sabotage: pass copy: false in place of copy: true in
-  # Effect.frozen_copy; the first assert_equal fails, as the host's
+  # Frozen.copy; the first assert_equal fails, as the host's
   # datamodel value is frozen in place.
   def test_a_host_datamodel_value_an_effect_carries_is_copied_not_frozen_in_place
     host = { "h" => { "k" => +"v" } }

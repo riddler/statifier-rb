@@ -11,12 +11,12 @@ module XMLHelper
   end
 
   def element(node)
-    assert_kind_of Statifier::XML::Element, node
+    assert_kind_of Internals::XML::Element, node
     node
   end
 
   def text(node)
-    assert_kind_of Statifier::XML::Text, node
+    assert_kind_of Internals::XML::Text, node
     node
   end
 
@@ -33,7 +33,7 @@ module XMLHelper
   # The result of parsing source, failing the test, rather than erroring it,
   # when the parse raises.
   def parse(source)
-    Statifier::XML.parse(source)
+    Internals::XML.parse(source)
   rescue StandardError => e
     flunk "#{source.inspect} raised #{e.class}: #{e.message}"
   end

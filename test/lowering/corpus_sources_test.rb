@@ -23,7 +23,7 @@ class LoweringCorpusSourcesTest < Minitest::Test
   def test_lowers_every_scxml_document_in_the_vendored_corpus
     all = sources
     refused = all.filter_map do |name, source|
-      result = Statifier::Lowering.lower(Statifier::XML.parse(source).value, source)
+      result = Internals::Lowering.lower(Internals::XML.parse(source).value, source)
       "#{name}: #{result.errors.map(&:message).join("; ")}" unless result.ok?
     end
 
@@ -36,7 +36,7 @@ class LoweringCorpusSourcesTest < Minitest::Test
   # are not shareable fails.
   def test_every_corpus_chart_is_deeply_frozen
     open = sources.reject do |_name, source|
-      Ractor.shareable?(Statifier::Lowering.lower(Statifier::XML.parse(source).value, source))
+      Ractor.shareable?(Internals::Lowering.lower(Internals::XML.parse(source).value, source))
     end
 
     assert_empty open.map(&:first)

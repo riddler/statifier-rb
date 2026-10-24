@@ -62,9 +62,6 @@ module Statifier
       new(name:, type: :platform, data:, cause:, sendid:, **BLANK)
     end
 
-    # `_event`'s value for this event ({Datamodel::SystemVariables.event}).
-    def system_value
-      Datamodel::SystemVariables.event(name:, type:, data:, sendid:, origin:, origintype:, invokeid:)
-    end
+    private_constant :BLANK, :EXTERNAL
   end
 end

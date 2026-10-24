@@ -3,11 +3,13 @@
 require "test_helper"
 require_relative "processor_helper"
 
-# Statifier::BasicHTTP::Processor.request: the request each send becomes
+# The request each send the processor is handed becomes (Outbound.request)
 # and the send key it carries, as tables of rows the reference's processor
 # builds alike.
 class BasicHTTPProcessorRequestTest < Minitest::Test
   include ProcessorHelper
+
+  OUTBOUND = Statifier::BasicHTTP.const_get(:Outbound)
 
   # The request a send becomes: [send fields, url, content type, body].
   REQUESTS = [
@@ -29,7 +31,7 @@ class BasicHTTPProcessorRequestTest < Minitest::Test
   # sabotage: always use `?` in with_query; the target-with-query row carries two.
   def test_a_send_becomes_the_request_the_reference_builds
     REQUESTS.each do |fields, url, content_type, body|
-      request = B::Processor.request("s1", send_effect(**fields))
+      request = OUTBOUND.request("s1", send_effect(**fields))
 
       assert_equal [url, content_type, body], [request.url, request.headers.assoc("content-type").last, request.body],
                    fields.inspect
@@ -49,8 +51,8 @@ class BasicHTTPProcessorRequestTest < Minitest::Test
   # sabotage: drop the ordinal from send_key; every row has seven fields.
   def test_every_request_carries_the_send_key_the_reference_spells
     KEYS.each do |fields, session_id, key|
-      assert_equal key, B::Processor.request(session_id, send_effect(**fields)).headers.assoc("scxml-send-key").last
+      assert_equal key, OUTBOUND.request(session_id, send_effect(**fields)).headers.assoc("scxml-send-key").last
     end
-    assert_equal "s1/send_1/1/1/0/3/onentry.2.0/1", B::Processor.send_key("s1", delayed_effect)
+    assert_equal "s1/send_1/1/1/0/3/onentry.2.0/1", OUTBOUND.send_key("s1", delayed_effect)
   end
 end

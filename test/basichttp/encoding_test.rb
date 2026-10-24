@@ -7,7 +7,7 @@ require "statifier/basichttp"
 # spelling, the form and key-field escapes and the form decoder, each as a
 # table of rows the reference's processor answers alike.
 class BasicHTTPEncodingTest < Minitest::Test
-  ENC = Statifier::BasicHTTP::Encoding
+  ENC = Statifier::BasicHTTP.const_get(:Encoding)
   U = Predicator::UNDEFINED
   CAFE = "caf\u00e9"
 

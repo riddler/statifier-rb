@@ -5,9 +5,9 @@ module LoweringHelper
 
   # The result of reading and lowering source; the read must succeed.
   def lower(source)
-    parsed = Statifier::XML.parse(source)
+    parsed = Internals::XML.parse(source)
     flunk "expected a parse, got #{parsed.error.message}" unless parsed.ok?
-    Statifier::Lowering.lower(parsed.value, source)
+    Internals::Lowering.lower(parsed.value, source)
   end
 
   # The chart source lowers to, failing the test when it is refused.

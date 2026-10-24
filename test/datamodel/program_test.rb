@@ -91,8 +91,8 @@ class ProgramTest < Minitest::Test
   # sabotage: answer Executed.new(data: context.data, error: nil) for an
   # Invalid in Datamodel.execute; the assert_same fails.
   def test_an_invalid_program_answers_its_compile_refusal_and_writes_nothing
-    refusal = Statifier::Compiler::Error.new(reason: :expression_compile_error, detail: {}, message: "m", location: nil)
-    executed = D.execute(context({ "x" => 1 }), Statifier::Machine::Invalid.new(error: refusal))
+    refusal = Internals::Compiler::Error.new(reason: :expression_compile_error, detail: {}, message: "m", location: nil)
+    executed = D.execute(context({ "x" => 1 }), Internals::Machine::Invalid.new(error: refusal))
 
     assert_same refusal, executed.error
     assert_equal({ "x" => 1 }, authored(executed.data))

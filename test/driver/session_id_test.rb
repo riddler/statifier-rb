@@ -43,7 +43,7 @@ class SessionIdTest < Minitest::Test
   # sabotage: drop the `<< 2` padding in SessionId.encode; the assert_equal
   # on the encoded value fails.
   def test_a_minted_id_is_the_reference_s_unpadded_base32_of_sixteen_bytes
-    assert_equal "sess_#{"0" * 25}4", Statifier::Driver::SessionId.encode(1)
-    assert_equal "sess_z#{"0" * 25}", Statifier::Driver::SessionId.encode(31 << 123)
+    assert_equal "sess_#{"0" * 25}4", Internals::SessionId.encode(1)
+    assert_equal "sess_z#{"0" * 25}", Internals::SessionId.encode(31 << 123)
   end
 end

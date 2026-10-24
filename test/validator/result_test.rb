@@ -28,8 +28,8 @@ class ValidatorResultTest < Minitest::Test
   # Validator.validate); the assert_same fails.
   def test_a_chart_that_passes_is_the_callers_own_chart_unchanged
     source = doc(%(<state id="a"><transition target="a"/></state>))
-    chart = Statifier::Lowering.lower(Statifier::XML.parse(source).value, source).value
-    result = Statifier::Validator.validate(chart, source)
+    chart = Internals::Lowering.lower(Internals::XML.parse(source).value, source).value
+    result = Internals::Validator.validate(chart, source)
 
     assert_predicate result, :ok?
     assert_same chart, result.value

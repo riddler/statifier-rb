@@ -25,23 +25,37 @@ module Statifier
   # ({Invoke}, {CancelInvoke} and {Autoforward}) and the {Trace} effects.
   # The driver adds one of its own, {Child}, which carries an effect an
   # invoked child's run answered.
+  #
+  # Every effect a call's runs answered is among the call's effects, in the
+  # order made, whatever the driver did with it:
+  #
+  # - A {Send} or a {SendDelayed}, by its type. A type the host registered
+  #   is handed to that type's processor (`deliver`), delayed or not. The
+  #   SCXML type, or none, is routed by its target, and a {SendDelayed} of it
+  #   waits as a pending timer until {Statifier.advance} reaches it. A send
+  #   of any other type is refused inside the chart with `error.execution`
+  #   and answers no effect.
+  # - A {Cancel} drops every pending timer under its send id and tells a
+  #   processor holding a delayed send under it, once.
+  # - An {Invoke} of the SCXML type whose content is markup starts a child
+  #   session in process (no content, or content that is not markup or does
+  #   not compile, raises `error.communication`); any other type raises
+  #   `error.execution` inside the chart. A {CancelInvoke} stops the child,
+  #   and an {Autoforward} hands it the event.
+  # - A {Log} is the host's to record; the driver does nothing with it.
+  # - A {Done} says the chart stopped; its pending timers and queued external
+  #   events are discarded.
+  # - An error is never an effect: `error.execution` and
+  #   `error.communication` are events the chart takes from its internal
+  #   queue, seen by a host only in what the chart does next, or, for a
+  #   chart started with `trace: true`, as a {Trace::EventDequeued}. The
+  #   one failure answered as an effect is a {BudgetExhausted}: a macrostep
+  #   spent its round budget, and the driver then queues external events
+  #   without taking them.
+  # - A {Child} carries an effect an invoked child answered, tagged with the
+  #   child's session id; a child's own child's effect is tagged with its
+  #   own.
   module Effect
-    module_function
-
-    # `value`, an effect or an event, as a deeply frozen copy: whatever it
-    # carries that is not already shareable is copied before it is frozen,
-    # so no object the caller passed in (a datamodel value, the stamp's
-    # owner) is frozen in place. The one field that is not copied or frozen
-    # is `caller_context`, the host's own opaque value, which the effect
-    # carries as the same object, whatever it is.
-    #
-    # @api private
-    def frozen_copy(value)
-      return Ractor.make_shareable(value, copy: true) unless value.respond_to?(:caller_context)
-
-      Ractor.make_shareable(value.with(caller_context: nil), copy: true).with(caller_context: value.caller_context)
-    end
-
     # A `<log>`: `label` as written, nil when it was not, and `value`, the
     # evaluated `expr`, nil for a `<log>` without one.
     Log = ::Data.define(:label, :value, :c_index, :owner, :macrostep, :microstep, :round)

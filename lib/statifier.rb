@@ -14,25 +14,46 @@ require_relative "statifier/accepts"
 # The interpreter core of an SCXML statechart engine.
 #
 # The package is being rewritten for 0.1.0. {Statifier.compile} reads SCXML
-# source into a machine, through the reader ({Statifier::XML}), the lowering
-# ({Statifier::Lowering}), the validator ({Statifier::Validator}) and the
-# compiler ({Statifier::Compiler}), all internal. The driver
+# source into a machine, through the reader, the lowering, the validator
+# and the compiler, all internal. The driver
 # ({Statifier::Driver}) steps a machine: {Statifier.start} starts a chart,
 # {Statifier.step} sends it an event, {Statifier.advance} moves its virtual
 # clock, {Statifier.report_send_failed} tells it a send failed, and
 # {Statifier.configuration} and {Statifier.done?} read it.
 # {Statifier.export_position} writes a chart's execution out as plain data a
 # host can keep, and {Statifier.import_position} reads it back in. The
-# interpreter under the driver ({Statifier::Interpreter}) is internal.
-# {Statifier.check_accepts} compares the event names a host declares a
-# chart accepts with the events the chart listens for.
+# interpreter under the driver is internal. {Statifier.check_accepts}
+# compares the event names a host declares a chart accepts with the events
+# the chart listens for.
 #
 # Every one of those calls but {Statifier.check_accepts}, which refuses
 # nothing and answers its {AcceptsCheck} directly, answers a {Result}.
 # Nothing is kept between calls but the state a call answers: there is no
 # global configuration, and a host passes its processors and its clock with
 # every call.
+#
+# The public surface is these calls and the values they take and answer:
+# {Result}, {AcceptsCheck}, {Event}, the effects under {Effect}, the
+# driver's values under {Driver} and the position's under {Position}, and
+# {VERSION}; `require "statifier/basichttp"` adds {BasicHTTP}. Every other
+# constant is private (`private_constant`), so a host cannot name it, and
+# a value a call answers whose class is private (the machine, a driver
+# state, a compile refusal) is read by its documented members.
 module Statifier
+  # The driver's calls and checks, its state, and the position's bodies:
+  # private constants of {Driver} and {Position}, named here once so the
+  # calls below reach them.
+  DRIVER_CALLS = Driver.const_get(:Calls)
+  DRIVER_CHECKS = Driver.const_get(:Checks)
+  DRIVER_STATE = Driver.const_get(:State)
+  POSITION_CODEC = Position.const_get(:Codec)
+
+  # Everything the package builds a machine and steps it with is internal:
+  # a host reaches it only through the calls below and the values they
+  # answer.
+  private_constant :Accepts, :Compiler, :Datamodel, :Document, :Frozen, :Interpreter, :Lowering, :Machine,
+                   :Validator, :XML, :DRIVER_CALLS, :DRIVER_CHECKS, :DRIVER_STATE, :POSITION_CODEC
+
   # What every public call answers: its `value`, or, as `error`, why it
   # was refused.
   #
@@ -59,21 +80,21 @@ module Statifier
   # it stops the rest.
   #
   # A refused source answers a failed {Result} whose `error` is the list of
-  # that stage's refusals, in document order: the reader's one
-  # `Statifier::XML::ParseError`, or every `Statifier::Lowering::Error`, or
-  # every `Statifier::Validator::Error`, or every
-  # `Statifier::Compiler::Error` (an expression predicator refused). Each
-  # carries a `reason` symbol, a `message` for a person and a `location`, the
-  # span in the source it names; all but the reader's carry a `detail` Hash
-  # too. A validator warning never refuses: a chart that compiles carries
-  # its warnings on the machine, as the reference's machine does.
+  # that stage's refusals, in document order: the reader's one parse error,
+  # or every error of the lowering, of the validator or of the compiler (an
+  # expression predicator refused). Their classes are internal. Each is a
+  # frozen value that carries a `reason` symbol, a `message` for a person
+  # and a `location`, the span in the source it names (`start_line`,
+  # `start_column`, `start_offset`, `end_line`, `end_column` and
+  # `end_offset`); all but the reader's carry a `detail` Hash too. A
+  # validator warning never refuses: a chart that compiles carries its
+  # warnings on the machine, as the reference's machine does.
   #
   # The machine is a frozen value, deeply, and its shape is internal: a host
   # hands it on and reads one of its members only, `warnings`, the
-  # validator's warnings in document order, a frozen list of
-  # `Statifier::Validator::Warning` values, each with the `reason`,
-  # `detail`, `message` and `location` an error carries (empty for a chart
-  # with none).
+  # validator's warnings in document order, a frozen list of warning
+  # values, each with the `reason`, `detail`, `message` and `location` an
+  # error carries (empty for a chart with none).
   #
   # @example
   #   result = Statifier.compile(<<~SCXML)
@@ -153,7 +174,7 @@ module Statifier
   def self.start(machine, **options)
     raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
 
-    Driver::Calls.start(machine, options)
+    DRIVER_CALLS.start(machine, options)
   end
 
   # Sends the chart one external event, and runs it, and every event it
@@ -171,7 +192,7 @@ module Statifier
   # @raise [ArgumentError] for processors that name other types than the
   #   chart was started with
   def self.step(state, name, data: Predicator::UNDEFINED, processors: {}, clock: nil)
-    Driver::Calls.step(state, name, data:, processors:, clock:)
+    DRIVER_CALLS.step(state, name, data:, processors:, clock:)
   end
 
   # Moves the virtual clock `milliseconds` forward, firing every pending
@@ -188,7 +209,7 @@ module Statifier
   # @raise [ArgumentError] for processors that name other types than the
   #   chart was started with
   def self.advance(state, milliseconds, processors: {}, clock: nil)
-    Driver::Calls.advance(state, milliseconds, processors:, clock:)
+    DRIVER_CALLS.advance(state, milliseconds, processors:, clock:)
   end
 
   # Reports a send the host was handed and could not deliver:
@@ -226,7 +247,7 @@ module Statifier
   #   not an execution of `machine`, or processors that name other types
   #   than the chart was started with
   def self.report_send_failed(machine, state, send, **options)
-    Driver::Calls.report_send_failed(machine, state, send, options)
+    DRIVER_CALLS.report_send_failed(machine, state, send, options)
   end
 
   # The active states, by id, the `<scxml>` root left out, sorted; a state
@@ -236,7 +257,7 @@ module Statifier
   # @param state [Driver::State] what a call answered
   # @return [Result] the names, a frozen list
   # @raise [TypeError] for a state of the wrong kind
-  def self.configuration(state) = Driver::Calls.configuration(state)
+  def self.configuration(state) = DRIVER_CALLS.configuration(state)
 
   # Whether the chart has stopped and, once it has, the top-level final's
   # donedata and the states it stopped in, as the {Effect::Done} carried
@@ -245,7 +266,7 @@ module Statifier
   # @param state [Driver::State] what a call answered
   # @return [Result] a {Driver::DoneStatus}
   # @raise [TypeError] for a state of the wrong kind
-  def self.done?(state) = Driver::Calls.done?(state)
+  def self.done?(state) = DRIVER_CALLS.done?(state)
 
   # Writes the chart's execution out as a position: plain data in the
   # reference's string-id vocabulary, a frozen Hash with String keys whose
@@ -271,7 +292,7 @@ module Statifier
   #   `:unencodable_value`, the first variable (`detail[:field]`) whose
   #   value the tagged-value encoding refuses, with the codec's reason
   # @raise [TypeError] for a state of the wrong kind
-  def self.export_position(state) = Position.export(Driver::Checks.state(state, nil))
+  def self.export_position(state) = POSITION_CODEC.export(DRIVER_CHECKS.state(state, nil))
 
   # Reads a position back in as a driver state over `machine`, which may be
   # a fresh compile of the same source or any machine holding every state
@@ -304,7 +325,7 @@ module Statifier
   def self.import_position(machine, position, processors: {})
     raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
 
-    Position.import(machine, position, processors)
+    POSITION_CODEC.import(machine, position, processors)
   end
 
   # Compares `declared_events`, the event names a chart is declared to

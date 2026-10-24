@@ -23,14 +23,14 @@ class EvaluateTest < Minitest::Test
   def test_a_static_value_comes_back_untouched
     value = { "a" => [1, 2] }.freeze
 
-    assert_same value, D.evaluate(context, Statifier::Machine::Static.new(value:)).value
+    assert_same value, D.evaluate(context, Internals::Machine::Static.new(value:)).value
   end
 
   # sabotage: answer error: nil for an Invalid in Datamodel.evaluate; the
   # assert_same on the error fails.
   def test_an_invalid_expression_answers_its_deferred_compile_refusal
-    refusal = Statifier::Compiler::Error.new(reason: :expression_compile_error, detail: {}, message: "m", location: nil)
-    evaluated = D.evaluate(context, Statifier::Machine::Invalid.new(error: refusal))
+    refusal = Internals::Compiler::Error.new(reason: :expression_compile_error, detail: {}, message: "m", location: nil)
+    evaluated = D.evaluate(context, Internals::Machine::Invalid.new(error: refusal))
 
     refute_predicate evaluated, :ok?
     assert_same refusal, evaluated.error
