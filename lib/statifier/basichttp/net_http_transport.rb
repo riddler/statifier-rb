@@ -14,10 +14,14 @@ module Statifier
     # response came back: a URL that is not an absolute `http` or `https` URL
     # with a host (no connection is then opened); any error raised while it
     # connects, sends or reads, a host's `connect` included, which is then
-    # the error's `cause`; or a status line outside 100 to 599.
+    # the error's `cause`; or a response it cannot build a {Response} from:
+    # a status line outside 100 to 599, a header name that is not an HTTP
+    # token, or a header value holding a carriage return, a line feed or a
+    # NUL.
     #
-    # Net::HTTP adds the headers it always adds (`host`, and the
-    # `accept-encoding`, `accept` and `user-agent` defaults) unless the
+    # Net::HTTP adds the headers it always adds (`host`, `content-length`
+    # (`0` for an empty body, a GET included), and the `accept-encoding`,
+    # `accept` and `user-agent` defaults) unless the
     # request names them, and a response body it decodes from `gzip` or
     # `deflate` is answered decoded. Two headers of one name in a request are
     # sent as one header, their values joined by a comma.

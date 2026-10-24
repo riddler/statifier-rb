@@ -98,7 +98,8 @@ module Statifier
   #
   # A macrostep that spends its round budget halts the driver as the
   # reference halts its session: further external events are queued and not
-  # taken, and pending timers still fire. One call also spends that budget
+  # taken. A fired timer to the chart itself joins its external queue and
+  # any other is dropped. One call also spends that budget
   # twice more, so that it always returns where the reference's session
   # would keep running: against the events it takes that an undelayed send
   # queued for the session in this call, and against the undelayed sends it

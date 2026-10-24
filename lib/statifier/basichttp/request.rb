@@ -2,8 +2,9 @@
 
 module Statifier
   module BasicHTTP
-    # One request a transport makes, a frozen value, deeply: the strings it
-    # is built from are copied, never frozen in place. A transport sends it
+    # One request a transport makes, a frozen value, deeply: a string it
+    # is built from that is not frozen is copied, never frozen in place, and
+    # one already frozen is kept. A transport sends it
     # as it is handed and changes nothing in it.
     #
     # @example
