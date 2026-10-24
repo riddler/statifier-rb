@@ -164,6 +164,11 @@ is internal, called by no public method yet. Beside it is the lowering,
 tree into a typed chart of immutable nodes, `Statifier::Document` under
 `lib/statifier/document/`, with expressions kept as source text and a
 source span on every node, or answers every refusal; it is internal too.
+After it is the validator, `Statifier::Validator` under
+`lib/statifier/validator/`, which holds the chart to the reference's
+gating checks and answers every error and warning with its position; it
+is internal, and its result carries the chart only when no gating check
+fails.
 The 2019 stub is gone. The
 compiler and the interpreter arrive with later changes; until they do, the
 sentences in this file about them describe the target, not the current tree,
