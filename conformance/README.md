@@ -92,7 +92,13 @@ most 4000 virtual milliseconds after it, the two knobs of the reference's
 harness. A case carrying a `host` object, or a step stating an exported
 position, fails naming what it asks for. This registry claims the scion
 suite, every one of its cases; the w3c and statifier cases are unclaimed
-however the run answers them.
+however the run answers them. Beside the drive, the position round-trip
+property (`test/conformance/position_property.rb`), a test of the gate,
+takes a point after the start and after every step of each scion case,
+exports the position there, carries it through JSON, imports it into a fresh
+compile and drives the remaining steps, requiring the imported drive to agree
+with the unbroken one at every later step; it is this package's claim about
+itself, not a comparison with the reference's positions.
 
 An excluded document is not in the corpus at all, so it is not a case and
 is counted nowhere; `exclusions.json` is copied for its reasons. A case in

@@ -8,6 +8,7 @@ require_relative "statifier/compiler"
 require_relative "statifier/datamodel"
 require_relative "statifier/interpreter"
 require_relative "statifier/driver"
+require_relative "statifier/position"
 
 # The interpreter core of an SCXML statechart engine.
 #
@@ -17,7 +18,9 @@ require_relative "statifier/driver"
 # compiler ({Statifier::Compiler}), all internal. The driver
 # ({Statifier::Driver}) steps a machine: {Statifier.start} starts a chart,
 # {Statifier.step} sends it an event, {Statifier.advance} moves its virtual
-# clock, and {Statifier.configuration} and {Statifier.done?} read it. The
+# clock, and {Statifier.configuration} and {Statifier.done?} read it.
+# {Statifier.export_position} writes a chart's execution out as plain data a
+# host can keep, and {Statifier.import_position} reads it back in. The
 # interpreter under the driver ({Statifier::Interpreter}) is internal.
 #
 # Every one of those calls answers a {Result}. Nothing is kept between
@@ -31,11 +34,15 @@ module Statifier
   #   @return [Object, nil] {Statifier.compile}'s machine; the
   #     {Driver::Moved} a driver call that moves a chart answers;
   #     {Statifier.configuration}'s list of names; {Statifier.done?}'s
-  #     {Driver::DoneStatus}. Nil when the call was refused
+  #     {Driver::DoneStatus}; {Statifier.export_position}'s position;
+  #     {Statifier.import_position}'s {Driver::State}. Nil when the call was
+  #     refused
   # @!attribute [r] error
-  #   @return [Array, Symbol, nil] nil when the call succeeded. For
-  #     {Statifier.compile}, the refusals, a frozen list that is never
-  #     empty; for a driver call, the reason as a Symbol
+  #   @return [Array, Symbol, Position::Refusal, nil] nil when the call
+  #     succeeded. For {Statifier.compile}, the refusals, a frozen list that
+  #     is never empty; for a driver call, the reason as a Symbol; for
+  #     {Statifier.export_position} and {Statifier.import_position}, a
+  #     {Position::Refusal}
   Result = ::Data.define(:value, :error) do
     # @return [Boolean] whether the call succeeded
     def ok? = error.nil?
@@ -195,4 +202,64 @@ module Statifier
   # @return [Result] a {Driver::DoneStatus}
   # @raise [TypeError] for a state of the wrong kind
   def self.done?(state) = Driver::Calls.done?(state)
+
+  # Writes the chart's execution out as a position: plain data in the
+  # reference's string-id vocabulary, a frozen Hash with String keys whose
+  # values are Strings, Integers, booleans, and Arrays and Hashes of them,
+  # ready for JSON ({Statifier::Position} says what each key holds). A
+  # datamodel value is carried as text in predicator's tagged-value
+  # encoding.
+  #
+  # A position holds what the interpreter holds between two calls and
+  # nothing of the driver's own: no pending timer, no queued external
+  # event, no send a processor holds, no virtual time and no donedata.
+  #
+  # @example
+  #   started = Statifier.start(machine, session_id: "s1").value
+  #   position = Statifier.export_position(started.state).value
+  #   position["configuration"] # => ["a"]
+  #
+  # @param state [Driver::State] what a call answered
+  # @return [Result] the position, or a {Position::Refusal}:
+  #   `:internal_queue_not_empty` while an internal event waits;
+  #   `:unnameable_states`, every index (`detail[:indexes]`, sorted) of a
+  #   state the position holds that the document gave no id; or
+  #   `:unencodable_value`, the first variable (`detail[:field]`) whose
+  #   value the tagged-value encoding refuses, with the codec's reason
+  # @raise [TypeError] for a state of the wrong kind
+  def self.export_position(state) = Position.export(Driver::Checks.state(state, nil))
+
+  # Reads a position back in as a driver state over `machine`, which may be
+  # a fresh compile of the same source or any machine holding every state
+  # the position names: the position's chart is not checked, as the
+  # reference's import checks none. The ids are resolved against `machine`,
+  # the root re-added, and the driver's own members start as a fresh start
+  # leaves them: the virtual clock at zero, no pending timer, nothing
+  # queued or held. The session id is the one `_sessionid` holds. A stopped
+  # position imports stopped, its donedata undefined and its configuration
+  # empty. The position is read, never frozen or changed.
+  #
+  # @example
+  #   imported = Statifier.import_position(machine, JSON.parse(JSON.generate(position)))
+  #   Statifier.configuration(imported.value).value # => ["a"]
+  #
+  # @param machine [Machine] a compiled chart
+  # @param position [Hash] what {export_position} answered, or the same
+  #   data read back from JSON
+  # @param processors [Hash{String => #deliver}] the host's processors, as
+  #   {start} takes them; every later call names the same types
+  # @return [Result] the {Driver::State}, or a {Position::Refusal}:
+  #   `:malformed_export` when `position` is not a Hash
+  #   (`detail[:kind]` `:not_a_hash`), lacks a key (`:missing_keys`, every
+  #   one in `detail[:keys]`, sorted), holds a field of the wrong shape
+  #   (`:bad_shape`, the first in `detail[:field]`), a datamodel text that
+  #   does not decode (`:undecodable_value`) or no String `_sessionid`
+  #   (`:no_session_id`); or `:unknown_state_ids`, every id `machine` holds
+  #   no state for (`detail[:ids]`, sorted)
+  # @raise [TypeError] for a machine or processors of the wrong kind
+  def self.import_position(machine, position, processors: {})
+    raise TypeError, "expected a compiled machine, got #{machine.class}" unless machine.is_a?(Machine)
+
+    Position.import(machine, position, processors)
+  end
 end

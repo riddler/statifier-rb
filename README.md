@@ -9,9 +9,14 @@ machine, and its driver steps one: `Statifier.start(machine)`,
 `Statifier.step(state, "e.go")` and `Statifier.advance(state, 10)` each answer
 a result whose value is the new state and the effects, and
 `Statifier.configuration(state)` and `Statifier.done?(state)` read a state.
-The full README arrives in a later change. The conformance corpus this
-package is checked against is vendored under `conformance/`, whose README says
-what is copied and from where; no case is claimed in its registry yet.
+`Statifier.export_position(state)` writes a state out as a position, plain data
+ready for JSON in the reference's string-id vocabulary, and
+`Statifier.import_position(machine, position)` reads one back in; a position
+carries no pending timer, queued event or virtual time, so a host that needs
+them keeps them itself. The full README arrives in a later change. The
+conformance corpus this package is checked against is vendored under
+`conformance/`, whose README says what is copied and from where; its registry
+claims the scion suite.
 
 ## Development
 
