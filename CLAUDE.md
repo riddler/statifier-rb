@@ -18,7 +18,7 @@ a stub; the authority rules below are the part that is specific to this repo.
 
 | Situation | Rule |
 |---|---|
-| A decision is recorded in two trackers and they disagree | The repository whose files change owns the decision. The statechart semantics are statifier-ex's call (its conformance corpus and its records), and the condition language is the `predicator` gem's (predicator-rb); this port's Ruby API, packaging and gate are this repo's call |
+| A decision is recorded in two trackers and they disagree | The repository whose files change owns the decision. The statechart semantics are statifier-ex's call (its conformance corpus and its records), the condition language is predicator-ex's call, implemented in Ruby by the `predicator` gem (predicator-rb); this port's Ruby API, packaging and gate are this repo's call |
 | A bead pairs with one in another repo | Both halves carry `mirrors: <id>` as the first line of the description |
 | You are about to schedule, claim, plan against, or cite the status of a mirrored bead | Re-read the other tracker first and write a new dated note above the old one, then act |
 | A `mirrors:` line names an id that no longer resolves | Broken immediately, not stale. Fix it with one `bd update` the moment you notice |
@@ -147,13 +147,14 @@ dependency, the `predicator` gem (2.x), which evaluates conditions,
 expressions and assignments; the SCXML front end is hand-written, with no XML
 gem; it runs on Ruby 3.3 or later.
 
-The tree on `main` today still holds the 2019 stub: `lib/`, `test/`, `bin/`,
-`statifier.gemspec`, `Gemfile`, `Gemfile.lock`, `Rakefile`, `README.md`,
-`CODE_OF_CONDUCT.md` and `LICENSE.txt` are the 0.0.1 gem being
-replaced, and the next change removes or rewrites them. The scaffold of the
-0.1.0 package, its gate, CI and the vendored corpus arrive with later
-changes; until they do, the sentences in this file about the 0.1.0 package,
-its corpus and its gate describe the target, not the current tree.
+The tree holds the scaffold of the 0.1.0 package: the empty `Statifier` module
+(`lib/statifier.rb`, `lib/statifier/version.rb`, version `0.1.0.pre`), the
+gemspec, the `Gemfile`, `mise.toml`, the lint and coverage configuration, the
+`Rakefile` and its gate, and the tests of the version, the gemspec and the
+release task's guard. The 2019 stub is gone. CI, the release workflow, the
+vendored corpus and the interpreter arrive with later changes; until they do,
+the sentences in this file about them describe the target, not the current
+tree.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
   no statechart code; the stub stays installable from rubygems.org.
@@ -164,8 +165,9 @@ its corpus and its gate describe the target, not the current tree.
   call. Results are values (`ok?`, `value`, `error`), and there is no global
   configuration (decided by the conductor under a standing consent,
   2026-10-23).
-- **Interpreter core only.** Persistence, timer adapters and the like are
-  out of this package.
+- **Interpreter core only.** Persistence and timer adapters are out of this
+  package. Host processors are passed per call, and an HTTP event processor
+  arrives in a later release of this package.
 - **The corpus is the arbiter.** `conformance/statifier/` will hold the
   corpus vendored from statifier-ex at a release tag, its tag, commit and
   hash recorded in `conformance/statifier.vendored.json`. The vendored files
@@ -174,15 +176,13 @@ its corpus and its gate describe the target, not the current tree.
   its evidence, never skipped or worked round here. An answer the corpus does
   not fix follows statifier-ex at that tag.
 
-`README.md` will be the user reference and `CHANGELOG.md` will record each
-release; later changes rewrite the README and add the changelog.
+`README.md` is a placeholder today and will become the user reference;
+`CHANGELOG.md` records each release.
 
 ## Build & Test
 
-Once the scaffold lands:
-
 ```bash
-mise install                          # the Ruby that mise.toml will pin
+mise install                          # the Ruby that mise.toml pins
 mise exec -- bundle install           # the dev tools
 mise exec -- bundle exec rake test    # inner loop
 mise exec -- bundle exec rake         # full gate
@@ -190,15 +190,15 @@ mise exec -- bundle exec rake         # full gate
 
 ### This repo's own gate rules
 
-- The full gate will be `mise exec -- bundle exec rake`, the `Rakefile`'s
-  default task: rubocop, the corpus hash check and the registry check once
-  the corpus is vendored, and the tests under SimpleCov at a 90 percent
-  minimum. The inner loop is `mise exec -- bundle exec rake test`. Only the
-  full command is the advancement gate: a `rake test` run, like any scoped
-  run, is never evidence for a claim that the gate is green.
+- The full gate is `mise exec -- bundle exec rake`, the `Rakefile`'s
+  default task: rubocop, then the tests under SimpleCov at a 90 percent
+  minimum. The corpus hash check and the registry check join it once the
+  corpus is vendored. The inner loop is `mise exec -- bundle exec rake test`.
+  Only the full command is the advancement gate: a `rake test` run, like any
+  scoped run, is never evidence for a claim that the gate is green.
 - The supported floor (`required_ruby_version >= 3.3` in the gemspec) is
   declared separately from the interpreter the gate runs on (the Ruby
-  `mise.toml` will pin); CI, once a later change adds it, proves the floor
+  `mise.toml` pins); CI, once a later change adds it, proves the floor
   and the newer Rubies, 3.3, 3.4 and 4.0 (ruled by the operator,
   2026-10-23).
 - **Never truncate the output.** No `| tail`, `| head`, `| grep`; truncating
@@ -230,8 +230,8 @@ conventions rather than inventing a second set.
 - **Domain-free examples.** The README, doc comments and test fixtures teach
   no example domain: examples use neutral state and event names such as `a`,
   `b`, `s1` and `e.go`, and fictional values.
-- **Executions, not runs.** A statechart has executions; "run" is kept for a
-  CI workflow run.
+- **Executions, not runs.** A statechart has executions, never runs; "run"
+  stays for a CI workflow run or a gate run, and for running a command.
 - **One runtime dependency.** The gemspec declares `predicator` (`>= 2.0`,
   `< 3`) and nothing else; development tools live in the `Gemfile`. No XML
   gem: REXML is a bundled gem and would be a dependency, and nokogiri is

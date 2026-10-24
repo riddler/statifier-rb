@@ -1,11 +1,19 @@
+# Bundler and build output
 /.bundle/
+/pkg/
+*.gem
+
+# Test coverage report
+/coverage/
+
+# Local tooling
 /.yardoc
 /_yardoc/
-/coverage/
 /doc/
-/pkg/
-/spec/reports/
 /tmp/
+.ruby-gemset
+.ruby-version
+.DS_Store
 
 # Changelog fragments are tracked. A global gitignore rule for `*.d` (C/C++
 # dependency files) matches this directory name and would otherwise hide them.
