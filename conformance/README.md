@@ -91,8 +91,12 @@ clock that settles 100 virtual milliseconds before each event and waits at
 most 4000 virtual milliseconds after it, the two knobs of the reference's
 harness. A case carrying a `host` object, or a step stating an exported
 position, fails naming what it asks for. This registry claims the scion
-suite, every one of its cases; the w3c and statifier cases are unclaimed
-however the run answers them. Beside the drive, the position round-trip
+suite, every one of its cases, and the w3c cases the run passes: the
+`w3c-mandatory` claim covers its mandatory entries and the `w3c-optional`
+claim its optional ones. The w3c cases left out are the two mandatory cases
+the run fails and the optional cases whose host object names the BasicHTTP
+processor, which the drive does not provide; the statifier cases are
+unclaimed however the run answers them. Beside the drive, the position round-trip
 property (`test/conformance/position_property.rb`), a test of the gate,
 takes a point after the start and after every step of each scion case,
 exports the position there, carries it through JSON, imports it into a fresh
