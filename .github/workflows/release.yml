@@ -1,0 +1,238 @@
+name: Release
+
+# Publishes this gem to rubygems.org when a version tag is pushed. Nothing
+# else triggers it - no branch push, no pull request, no manual dispatch.
+#
+# Two jobs. `verify` checks five things at the tagged commit: it is on the
+# default branch, rubygems.org does not already show the version the tag
+# names, the Ruby is the one mise.toml pins, the tag names the version
+# lib/statifier/version.rb states there (Statifier::VERSION), and the full
+# quality gate is green there; then it checks the gate left the checkout
+# clean. It has no id-token permission, so it cannot ask for the token
+# rubygems.org trusts. `publish` runs only after `verify` succeeds, at the
+# same commit, and is the one job that may ask GitHub for an OIDC token.
+#
+# What a failure leaves behind:
+# - A failure in `verify` publishes nothing; `publish` never starts. When a
+#   check refused the commit (not on the default branch, the Ruby is not the
+#   pinned one, the tag and the version disagree, the gate is red, the gate
+#   changed a tracked file), the fix lands on main and a new patch version
+#   is tagged there; a pushed tag is never moved. When rubygems.org could
+#   not be read (any answer but 200 or 404) or a download failed, re-running
+#   the run can go green.
+# - A failure in `publish` before rubygems.org accepts the gem (the
+#   checkout, the toolchain setup, release-gem's git configuration and tag
+#   fetch, the credential exchange, the build, or the push failing on a
+#   registry or network error before the upload is accepted) publishes
+#   nothing. Re-running the run from its page in the Actions tab ("Re-run
+#   failed jobs" runs `publish` again; re-running every job runs `verify`
+#   first, which still finds the version absent) can go green.
+# - A failure after the push (release-gem's wait for rubygems.org to serve
+#   the version timing out, say) leaves the version published. Re-running
+#   only `publish` fails at the push, which rubygems.org refuses for a
+#   version it already has; re-running every job stops at `verify`'s
+#   "already on rubygems.org" check and reports it. Either way the run stays
+#   red although the publish succeeded; the version's rubygems.org page is
+#   the answer.
+#
+# rubygems.org trusted publishing: the publish step exchanges this run's
+# OIDC identity for a short-lived rubygems.org credential, so no API key
+# exists anywhere - not in this file, not in the repository's secrets.
+# rubygems.org must list this repository and this workflow file as the gem's
+# trusted publisher before the first tag is pushed.
+#
+# This file records the publish decision for this repository, which keeps no
+# decision records (CLAUDE.md, "Agent authority in this repo": the "Release
+# preps" paragraph and the paragraph after it, which says where a release
+# decision is recorded). This workflow is the only publisher: it publishes on
+# the push of the tag that names a merged release prep. An agent or a session
+# never runs `gem push`, and a failed run is re-run from its Actions page,
+# never worked round by a local publish.
+#
+# Every action is pinned to a full commit SHA, its release tag in the
+# trailing comment; moving an action to a new release means moving both.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# No permission at the workflow level; each job names the ones it needs.
+permissions: {}
+
+# One run per tag, and a run in progress is never cancelled: a publish cut
+# off part way is worse than one that finishes.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify the tag and run the gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # contents: read for the checkout and the default branch fetch. No
+    # id-token: this job cannot ask for the token rubygems.org trusts.
+    permissions:
+      contents: read
+
+    steps:
+      # Full history: the ancestry check below walks it.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      # The default branch is read from the push event itself, never written
+      # here, so a renamed default branch needs no edit to this file.
+      - name: Fetch the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test -n "$DEFAULT_BRANCH" || { echo "::error::the push event names no default branch" >&2; exit 1; }
+          git fetch --no-tags origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+
+      - name: Check the tagged commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          if ! git merge-base --is-ancestor "$commit" "origin/${DEFAULT_BRANCH}"; then
+            echo "::error::${GITHUB_REF_NAME} is on ${commit}, which is not on ${DEFAULT_BRANCH}; nothing is published" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is on ${commit}, which is on ${DEFAULT_BRANCH}"
+
+      # A version rubygems.org already shows is reported, never published
+      # again (rubygems.org would refuse a reused version anyway). This also
+      # answers a re-run of a run that did publish. Any other answer stops
+      # the run without publishing, and a re-run asks again.
+      - name: Check rubygems.org does not already show this version
+        env:
+          GEM_NAME: statifier
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "https://rubygems.org/api/v2/rubygems/${GEM_NAME}/versions/${version}.json")"
+          case "$status" in
+            404) echo "${GEM_NAME} ${version} is not on rubygems.org yet" ;;
+            200) echo "::error::${GEM_NAME} ${version} is already on rubygems.org; reported, not published again" >&2; exit 1 ;;
+            *) echo "::error::rubygems.org answered ${status} for ${GEM_NAME} ${version}; nothing is published" >&2; exit 1 ;;
+          esac
+
+      # --- the toolchain and the full quality gate, exactly as ci.yml's gate
+      # job runs them.
+
+      # The Ruby comes from mise.toml (setup-ruby reads it when no
+      # ruby-version is given and there is no .ruby-version or .tool-versions
+      # file); Bundler is the version Gemfile.lock's BUNDLED WITH names, and
+      # the gems install from the lock in deployment mode.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          bundler-cache: true
+
+      - name: Check the Ruby is the one mise.toml pins
+        run: |
+          set -euo pipefail
+          pinned="$(sed -n 's/^ruby *= *"\([^"]*\)".*$/\1/p' mise.toml | head -1)"
+          test -n "$pinned" || { echo "::error::no ruby version in mise.toml" >&2; exit 1; }
+          running="$(ruby -e 'print RUBY_VERSION')"
+          if [ "$pinned" != "$running" ]; then
+            echo "::error::mise.toml pins ruby ${pinned} but this job runs ${running}" >&2
+            exit 1
+          fi
+          echo "ruby ${running}, as mise.toml pins"
+
+      # The version is the one the gemspec reads (it evaluates
+      # lib/statifier/version.rb), so the version checked here is the
+      # version the gem would be built at.
+      - name: Check the tag names Statifier::VERSION
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          file_version="$(ruby -e 'spec = Gem::Specification.load("statifier.gemspec"); print spec.version if spec')"
+          test -n "$file_version" || { echo "::error::statifier.gemspec at the tagged commit did not load; nothing is published" >&2; exit 1; }
+          if [ "$tag_version" != "$file_version" ]; then
+            echo "::error::${GITHUB_REF_NAME} names ${tag_version} but lib/statifier/version.rb at the tagged commit says ${file_version}; nothing is published" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} matches Statifier::VERSION ${file_version}"
+
+      # The command is read out of .claude/wurk.json (gate.full), the gate an
+      # agent must have green before committing, without its leading
+      # `mise exec --`: setup-ruby has already put the pinned Ruby on the
+      # PATH. It is read and executed inside the step rather than interpolated
+      # into `run:`, so a repository file never reaches the shell as
+      # expression text.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          mapfile -t cmd < <(jq -er '.gate.full[]' .claude/wurk.json)
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          if [ "${#cmd[@]}" -ge 3 ] && [ "${cmd[0]}" = "mise" ] && [ "${cmd[1]}" = "exec" ] && [ "${cmd[2]}" = "--" ]; then
+            cmd=("${cmd[@]:3}")
+          fi
+          echo "gate command (.claude/wurk.json gate.full, without mise exec --): ${cmd[*]}"
+          "${cmd[@]}"
+
+      # --- end of the gate.
+
+      # The gate's coverage report lands under coverage/, which .gitignore
+      # covers; the release task refuses a checkout with uncommitted changes
+      # to tracked files, so a gate that rewrote one stops here, before
+      # anything is published, rather than later in the publish job.
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            git status --short
+            echo "::error::the gate changed tracked files; nothing is published" >&2
+            exit 1
+          fi
+          echo "the checkout is clean"
+
+  publish:
+    name: Publish to rubygems.org
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # contents: read for the checkout; id-token: write lets the publish step
+    # ask GitHub for the OIDC token rubygems.org trusts. This job alone holds
+    # it. The tag already exists when this runs, and nothing here creates or
+    # pushes one.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      # The same commit verify checked: both jobs check out the commit the
+      # pushed tag names.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # The Ruby mise.toml pins and the gems Gemfile.lock names, nothing
+      # more: release-gem runs `bundle exec rake release`, and loading the
+      # Rakefile needs the bundle (its rake, minitest and rubocop task
+      # definitions).
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          bundler-cache: true
+
+      # No API key: release-gem configures the trusted-publishing credential
+      # from this run's OIDC token, then runs `bundle exec rake release`. The
+      # Rakefile's `release` task builds the gem into pkg/ and pushes it, and
+      # never creates or pushes a git tag; it refuses to run anywhere but in
+      # this workflow on the push of the tag naming Statifier::VERSION. The
+      # action then waits until rubygems.org serves the pushed version.
+      - name: Publish to rubygems.org
+        uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1.4.1
+
+      - name: Print the published version's address
+        env:
+          GEM_NAME: statifier
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          echo "https://rubygems.org/gems/${GEM_NAME}/versions/${version}"
