@@ -123,9 +123,11 @@ module Statifier
       # A list or a map as JSON text, or nil when a value inside has no JSON
       # form. Inside, `Predicator::UNDEFINED` and nil are `null`; a map's
       # keys must be UTF-8 Strings, and its members stand in the byte order
-      # of their keys, the order the reference's runtime lists a map's
-      # string keys in; a string must be UTF-8; a Float must be finite; a
-      # value nested deeper than {JSON_DEPTH} has none.
+      # of their keys; a string must be UTF-8; a Float must be finite; a
+      # value nested deeper than {JSON_DEPTH} has none. Byte order is the
+      # order the reference's runtime lists a small map's string keys in (32
+      # keys or fewer); it lists a larger map in an order of its own, so for
+      # a map of more than 32 keys this text differs from the reference's.
       #
       # @param value [Array, Hash]
       # @return [String, nil]

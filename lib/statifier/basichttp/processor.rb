@@ -35,7 +35,8 @@ module Statifier
     #
     # - a Hash is a form body (`application/x-www-form-urlencoded`): the
     #   event name as the `_scxmleventname` parameter, then each name and
-    #   value, in the byte order of the names;
+    #   value, in the byte order of the names (the reference lists a map of
+    #   more than 32 names in an order of its own, so such a body differs);
     # - no data (`Predicator::UNDEFINED`) is a form body of the event name
     #   alone;
     # - any other value is the body, as `text/plain`, with the event name as
