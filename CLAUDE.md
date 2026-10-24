@@ -159,7 +159,7 @@ registry check, the ratchet, the refresh and the conformance runner under
 `test/conformance/` (`conformance/README.md` says what each is). And it
 holds the XML reader, `Statifier::XML` under `lib/statifier/xml/`, which
 turns a document into an element tree with a source span on every node; it
-is internal, called by no public method yet. Beside it is the lowering,
+is internal. Beside it is the lowering,
 `Statifier::Lowering` under `lib/statifier/lowering/`, which turns that
 tree into a typed chart of immutable nodes, `Statifier::Document` under
 `lib/statifier/document/`, with expressions kept as source text and a
@@ -168,10 +168,17 @@ After it is the validator, `Statifier::Validator` under
 `lib/statifier/validator/`, which holds the chart to the reference's
 gating checks and answers every error and warning with its position; it
 is internal, and its result carries the chart only when no gating check
-fails.
+fails. Last is the compiler, `Statifier::Compiler` under
+`lib/statifier/compiler/`, which interns every state, transition, content
+node and `<data>` to an index in document order and compiles every
+expression through predicator into the machine, `Statifier::Machine` under
+`lib/statifier/machine/`, a deeply frozen value; both are internal. The
+package's one public method is `Statifier.compile`, which runs the four in
+order and answers a result (`ok?`, `value`, `error`): the machine, or the
+refusals of the first stage that refused.
 The 2019 stub is gone. The
-compiler and the interpreter arrive with later changes; until they do, the
-sentences in this file about them describe the target, not the current tree,
+interpreter arrives with later changes; until it does, the
+sentences in this file about it describe the target, not the current tree,
 and the registry claims no case.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
