@@ -24,15 +24,17 @@ module ContentHelper
   def stamp = C::Stamp.new(owner: OWNER, macrostep: 2, microstep: 3, round: 4, caller_context: nil)
 
   # The datamodel content_machine binds when it starts.
-  def bound(chart)
-    seeded = DM::SystemVariables.seed({}, session_id: "sid", name: chart.name)
+  def bound(chart, host = {})
+    seeded = DM::SystemVariables.seed(host, session_id: "sid", name: chart.name)
     DM::DataBinding.start(DM.context(seeded, chart, [0])).data
   end
 
   # body run as one block with a and the root active.
-  def run_block(body, sends = Statifier::Interpreter::Send::SendState::INITIAL)
+  # `with` overrides the stamp's fields and `host` is the host's datamodel.
+  def run_block(body, sends = Statifier::Interpreter::Send::SendState::INITIAL, with: {}, host: {})
     chart = content_machine(body)
-    C.execute_block(DM.context(bound(chart), chart, [0, 1]), chart.state(1).onentry.first.content, stamp, sends)
+    C.execute_block(DM.context(bound(chart, host), chart, [0, 1]), chart.state(1).onentry.first.content,
+                    stamp.with(**with), sends)
   end
 
   # The origin of an event the node at c_index raised.

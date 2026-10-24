@@ -42,7 +42,7 @@ module Statifier
       # `{kind: :transition, t_index:}` or `{kind: :finalize, state_index:,
       # invoke_index:}`); the counters as they stand while it runs, which no
       # node moves; and `caller_context`, the opaque value the host attached
-      # to the step, nil for none.
+      # to the step (any object, never copied or frozen here), nil for none.
       Stamp = ::Data.define(:owner, :macrostep, :microstep, :round, :caller_context) do
         # The fields every effect content makes carries: the owner and the
         # counters.
@@ -84,11 +84,12 @@ module Statifier
 
       # What a block threads from node to node.
       Run = ::Data.define(:context, :sends, :effects, :raised, :pending) do
-        # The run with `effect` appended, deeply frozen.
-        def effect(effect) = with(effects: (effects + [Ractor.make_shareable(effect)]).freeze)
+        # The run with `effect` appended, as a deeply frozen copy
+        # ({Effect.frozen_copy}).
+        def effect(effect) = with(effects: (effects + [Effect.frozen_copy(effect)]).freeze)
 
-        # The run with `events` raised, each deeply frozen.
-        def raise_events(*events) = with(raised: (raised + events.map { Ractor.make_shareable(_1) }).freeze)
+        # The run with `events` raised, each a deeply frozen copy.
+        def raise_events(*events) = with(raised: (raised + events.map { Effect.frozen_copy(_1) }).freeze)
 
         # The run with a condition's failure recorded.
         def defer(reason) = with(pending: (pending + [reason]).freeze)
