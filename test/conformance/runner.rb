@@ -3,6 +3,7 @@
 require_relative "corpus"
 require_relative "host"
 require_relative "accepts"
+require_relative "position_expectation"
 require_relative "../../lib/statifier"
 
 module Conformance
@@ -85,8 +86,9 @@ module Conformance
   # above, from the start of the chart; once every configuration agrees,
   # the sends handed to it over the whole drive, in order and each with its
   # outcome, must be exactly `expect_sends`. A step of a case with a host
-  # object sends its event's `data`, when it gives one, as the harness
-  # injects it. A send whose expected item asks the host to report it
+  # object, or of a case stating an exported position, sends its event's
+  # `data`, when it gives one, as the harness injects it (the harness runs
+  # both kinds of case through `run/2`). A send whose expected item asks the host to report it
   # failed (`"outcome": "fail"`) is reported through
   # {Statifier.report_send_failed} once each driver call that handed it
   # returns, before the configuration is read, as the harness reports it
@@ -102,11 +104,20 @@ module Conformance
   # included. Either key without the other fails the case, naming the one
   # present.
   #
-  # Any other host key (the statifier suite's `to_source`, `expect_diff`,
-  # `mapping` and `expect_compatible_at`, and any key a later corpus adds)
-  # is not honoured here and fails the case naming the key. A case stating
-  # an exported position asks for what this runner does not compare yet,
-  # and fails with that named.
+  # A host object's diff pair, `to_source` and `expect_diff` with an
+  # optional `mapping` and `expect_compatible_at`, is accepted and compared
+  # by nothing here: a case carrying it is driven like any other host case,
+  # as the reference's harness drives it (its moduledoc in host_case.ex:
+  # "this runner compares none of them"). Any other host key (any key a
+  # later corpus adds) is not honoured here and fails the case naming the
+  # key.
+  #
+  # A step's `expect_position` is compared, once that step's configuration
+  # agrees, with the rendering of the state's exported position
+  # (Conformance::PositionExpectation, test/conformance/position_expectation.rb),
+  # as the harness compares it (`position/3` in host_case.ex). A case that
+  # states one on any step needs every state of its document to carry an id,
+  # and fails before it is driven when one has none (`named/2` there).
   module Drive
     # How long, in virtual ms, the clock may run before an event to drain
     # short timers.
@@ -124,8 +135,12 @@ module Conformance
     # its entry here and nowhere else.
     PROVIDED = {}.freeze
 
-    # The host keys the drive reads; any other is not honoured.
-    HONOURED_HOST_KEYS = %w[event_io_processors send_types expect_sends declared_events expect_accepts].freeze
+    # The diff pair's host keys: accepted, and compared by nothing here.
+    UNCOMPARED_HOST_KEYS = %w[to_source expect_diff mapping expect_compatible_at].freeze
+
+    # The host keys the drive reads or accepts; any other is not honoured.
+    HONOURED_HOST_KEYS = (%w[event_io_processors send_types expect_sends declared_events expect_accepts] +
+                          UNCOMPARED_HOST_KEYS).freeze
 
     # The answer for item: :pass, or the reason it failed. provided is the
     # table of processors the drive can register (PROVIDED, unless a test
@@ -137,20 +152,23 @@ module Conformance
       machine, failed = Accepts.prepared(item)
       return failed if failed
 
+      unnamed = PositionExpectation.expected?(item) && PositionExpectation.named(machine)
+      return unnamed if unnamed
+
       host = Host.for(item)
       driven = drive(item, machine, host.processors.merge(registered(item, provided)), host)
       driven == :pass ? host.verdict : driven
     end
 
     # What the case asks of its host that this runner does not honour, or
-    # nil: a host key it does not read, a processor `provided` holds no
-    # entry for, or an exported position.
+    # nil: a host key it neither reads nor accepts, or a processor
+    # `provided` holds no entry for.
     def self.unhonoured(item, provided = PROVIDED)
       host = item.fetch("host", {})
       other = host.keys - HONOURED_HOST_KEYS
       return "the case's host object (#{other.join(", ")}) is not honoured here" unless other.empty?
 
-      not_provided(host, provided) || position(item)
+      not_provided(host, provided)
     end
 
     # The processors the host object names that `provided` holds no entry
@@ -161,13 +179,6 @@ module Conformance
 
       "the case's host object names the Event I/O Processor #{missing.join(", ")}, " \
         "which this package does not provide"
-    end
-
-    # The reason for a case stating an exported position, or nil.
-    def self.position(item)
-      return unless item.fetch("steps").any? { _1.key?("expect_position") }
-
-      "a step states an exported position, which this runner does not compare yet"
     end
 
     # The URIs a host object's `event_io_processors` names, in order; a value
@@ -192,17 +203,20 @@ module Conformance
       failed = compare(state, item.fetch("initial_configuration"), "the initial configuration")
       return failed if failed
 
+      data = item.key?("host") || PositionExpectation.expected?(item)
       item.fetch("steps").each_with_index do |step, index|
-        state, failed = drive_step(state, step, index, calls, host: item.key?("host"))
+        state, failed = drive_step(state, step, index, calls, host: data)
         return failed if failed
       end
       :pass
     end
 
     # One step: the clock settled, the event sent, the expectation awaited
-    # and compared. `[state, reason]`, the reason nil when it agrees. A step
-    # of a case with a host object (`host`) sends its event's `data` when it
-    # gives one; any other sends the name alone.
+    # and compared, and then the step's exported position when it states
+    # one. `[state, reason]`, the reason nil when it agrees. A step of a
+    # case the harness runs as a host case (`host`: one with a host object
+    # or stating a position) sends its event's `data` when it gives one;
+    # any other sends the name alone.
     def self.drive_step(state, step, index, calls = Calls.plain, host: false)
       state = settle(state, calls)
       since = state.now_ms
@@ -210,7 +224,8 @@ module Conformance
       name = event.fetch("name")
       data = host ? event.fetch("data", Predicator::UNDEFINED) : Predicator::UNDEFINED
       state = await(calls.step(state, name, data), step.fetch("configuration"), since, calls)
-      [state, compare(state, step.fetch("configuration"), "step #{index + 1} (event #{name.inspect})")]
+      failed = compare(state, step.fetch("configuration"), "step #{index + 1} (event #{name.inspect})")
+      [state, failed || PositionExpectation.at_step(state, step, index + 1)]
     end
 
     # The state a call answered; a refused call is a bug here, since every

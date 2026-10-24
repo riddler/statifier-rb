@@ -4,49 +4,46 @@ require "test_helper"
 require_relative "runner"
 
 # The statifier suite, the reference's own cases, as the drive answers it:
-# every case of its accepts, library, send and system_variables groups
-# passes but the ones that ask for what the runner does not do yet, and
-# each of those, and every case of the other groups, fails with that
-# named.
+# every case of every group passes, the diff cases driven with their diff
+# pair compared by nothing and the cases stating an exported position
+# compared on it.
 class StatifierSuiteTest < Minitest::Test
   CORPUS = Conformance::Corpus.load
   CASES = CORPUS.cases_of("statifier")
   RESULTS = CASES.to_h { |item| [item["id"], Conformance::Drive.call(item)] }
 
-  POSITION = "a step states an exported position, which this runner does not compare yet"
-
-  def group(item) = item["id"].split("/")[1]
-  def position?(item) = item["steps"].any? { _1.key?("expect_position") }
-
   # sabotage: compare the handed sends in reverse in Host#verdict; the
-  # assert_equal on the passing ids fails (a case handed two sends or more
-  # then disagrees).
-  # sabotage: drop the exported-position refusal from Drive.unhonoured; the
-  # same assert_equal fails (the position cases are then driven and pass,
-  # their positions uncompared).
+  # assert_equal fails (a case handed two sends or more then disagrees).
   # sabotage: answer the accepts check with its two lists swapped in
-  # Accepts.compare; the same assert_equal fails (the accepts case then
+  # Accepts.compare; the assert_equal fails (the accepts case then
   # disagrees).
-  def test_every_accepts_library_send_and_system_variables_case_passes_but_what_the_runner_does_not_do_yet
-    groups = CASES.select { %w[accepts library send system_variables].include?(group(_1)) }
-    passing = groups.reject { position?(_1) }.map { _1["id"] }
-
-    assert_equal passing, RESULTS.select { _2 == :pass }.keys
-    refute_empty passing
+  # sabotage: render `_name` whatever the document (drop it from the
+  # left-out list in PositionExpectation.datamodel); the assert_equal fails
+  # (the four cases stating a position then disagree on their datamodel).
+  def test_every_case_of_the_suite_passes
+    assert_equal CASES.to_h { [_1["id"], :pass] }, RESULTS
+    assert_equal 36, CASES.size
   end
 
-  # sabotage: reword the reason Drive.position answers; the assert_equal on
-  # the reason of a case stating an exported position fails.
-  def test_each_case_left_fails_naming_what_it_asks_for
-    CASES.reject { RESULTS[_1["id"]] == :pass }.each do |item|
-      assert_equal expected_reason(item), RESULTS[item["id"]], item["id"]
-    end
+  # The first case stating a position.
+  POSITIONED = CASES.find { _1["steps"].any? { |step| step.key?("expect_position") } }
+
+  # That case, its first such step's `running` flipped: `[case, step
+  # number, the flag the case states now]`.
+  def flipped
+    altered = Marshal.load(Marshal.dump(POSITIONED))
+    index = altered["steps"].index { _1.key?("expect_position") }
+    position = altered["steps"][index]["expect_position"]
+    position["running"] = !position["running"]
+    [altered, index + 1, position["running"]]
   end
 
-  def expected_reason(item)
-    other = item.fetch("host", {}).keys - Conformance::Drive::HONOURED_HOST_KEYS
-    return "the case's host object (#{other.join(", ")}) is not honoured here" unless other.empty?
+  # sabotage: answer nil from PositionExpectation.compare (`return if
+  # true`); the assert_match on the reason fails.
+  def test_a_case_stating_a_position_the_chart_does_not_hold_fails_naming_the_member
+    altered, number, running = flipped
+    differs = "expect_position differs: running: expected #{running}, but got #{!running}"
 
-    POSITION
+    assert_match(/\Aafter step #{number} \(.*\), #{differs}\z/, Conformance::Drive.call(altered))
   end
 end

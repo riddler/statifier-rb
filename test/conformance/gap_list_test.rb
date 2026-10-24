@@ -23,7 +23,7 @@ class GapListTest < Minitest::Test
     ids = lines.map { |line| line.delete_prefix("conformance: gap: ").split.first }
 
     assert_equal UNCLAIMED.map { |item| item["id"] }, ids
-    assert_equal %w[w3c statifier], ids.map { |id| id.split("/").first }.uniq
+    assert_equal %w[w3c], ids.map { |id| id.split("/").first }.uniq
   end
 
   # sabotage: leave the features out of the line in gap_lines; the
