@@ -320,12 +320,141 @@ it into a fresh compile and drives the remaining steps, requiring the imported
 execution to agree with the unbroken one at every later step
 (`test/conformance/position_property.rb`).
 
-## The HTTP transport
+## The Basic HTTP processor
 
 The HTTP side of the gem is opt-in: `require "statifier/basichttp"` loads it,
-and `require "statifier"` alone loads none of it and no HTTP library. What it
-holds today is the HTTP transport, the seam between the Basic HTTP Event I/O
-Processor of SCXML appendix C.2 and whatever makes a request.
+and `require "statifier"` alone loads none of it and no HTTP library. It holds
+the Basic HTTP Event I/O Processor of SCXML appendix C.2, the decoder for the
+requests it sends, and the HTTP transport the processor makes its requests
+through.
+
+### Registering the processor
+
+`Statifier::BasicHTTP::Processor.new` takes the address the host's own server
+answers at (`base_url:`), a `report:` callable that takes each send the
+processor could not deliver, and optionally a `transport:` (below; a
+`NetHTTPTransport` when absent). Its `send_types` names it under the
+processor's URI, `Statifier::BasicHTTP::EVENT_PROCESSOR`
+(`http://www.w3.org/TR/scxml/#BasicHTTPEventProcessor`), and under the short
+form `basichttp`, so a chart may name either; pass them as `processors:` on
+every call. A session's `_ioprocessors` then carries an entry under each, both
+with the same `location`: the base URL, `/` and the session's id.
+
+```ruby
+require "statifier/basichttp"
+
+misses = []
+http = Statifier::BasicHTTP::Processor.new(base_url: "http://localhost:8080/scxml", report: misses.method(:<<))
+processors = http.send_types
+
+machine = Statifier.compile(<<~SCXML).value
+  <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0">
+    <state id="a">
+      <onentry>
+        <send event="e.go" type="basichttp" target="http://localhost:8080/scxml/s2">
+          <param name="reply" expr="_ioprocessors['basichttp']['location']"/>
+        </send>
+      </onentry>
+      <transition event="error.communication" target="failed"/>
+    </state>
+    <state id="failed"/>
+  </scxml>
+SCXML
+
+moved = Statifier.start(machine, session_id: "s1", processors:).value
+# The POST was made while the call ran; a miss is reported back after it returns
+misses.each do |miss|
+  moved = Statifier.report_send_failed(machine, moved.state, miss.effect, reason: miss.reason, processors:).value
+end
+```
+
+### What a send becomes
+
+Each send the processor is handed becomes one POST to its target, made once
+through the transport while the call that handed it runs. The request is built
+as the reference's processor builds it, by the shape of the send's data:
+
+| The send's data | Body | Content type | The event name |
+|---|---|---|---|
+| a Hash (its `namelist` and `<param>` values) | each name and value as a form field, in byte order of the names | `application/x-www-form-urlencoded` | the form field `_scxmleventname`, first |
+| none | the event name alone, as a form field | `application/x-www-form-urlencoded` | the form field `_scxmleventname` |
+| any other value (a `<content>` body) | the value written as text | `text/plain` | `_scxmleventname` in the target's query string |
+
+A send with no event name carries no `_scxmleventname`. A value is written as
+text the same way wherever it goes:
+
+| Value | Text |
+|---|---|
+| a String | as it is |
+| `nil` | `null` |
+| `Predicator::UNDEFINED` | the empty string |
+| `true`, `false` | `true`, `false` |
+| an Integer | its decimal digits |
+| a Float | its shortest digits, as the reference spells them: `1.5`, `2.0`, `1.0e15`, `1.0e-7` |
+| a list or a map | JSON text, `[1,2]` or `{"a":1}`, a map's members in byte order of their keys and `Predicator::UNDEFINED` inside as `null` |
+| a date, a datetime, a duration, or a list or a map holding a value with no JSON form | predicator's tagged-value text, or the empty string when that encoder refuses the value |
+
+Every request also carries the send's deduplication key in the
+`scxml-send-key` header: the session's id, the send id, the macrostep, the
+microstep, the round, the content index, the owner (`onentry.2.0`,
+`transition.4`) and the ordinal, joined by `/`, the first two percent-encoded.
+The same send carries the same key each time, so a receiver that deduplicates
+on it takes each send once.
+
+### When a send fails
+
+A send with no target fails within the call that handed it, as appendix C.2.2
+requires: the chart takes `error.communication` at the send's place and no
+request is made. Any other miss is handed to `report:` as a
+`Statifier::BasicHTTP::Failure` (its `session_id`, the send as `effect`, a
+`reason` and a `detail`) before the processor returns, as the reference's
+processor reports a miss to the sending session, which takes it after the step
+it is in. The host
+passes `effect` to `Statifier.report_send_failed` once the call has returned,
+with the state that call answered:
+
+| `reason` | When | `detail` |
+|---|---|---|
+| `:http_status` | the response's status is outside 2xx | the `Response` |
+| `:transport_error` | the transport raised, or answered something other than a `Response` | the error |
+| `:invalid_target` | the target is not a String | the target |
+| `:no_timer` | the send has a delay | `nil` |
+
+The processor holds no timer, so a delayed send is reported rather than held,
+where the reference's processor holds it on a timer of its own.
+
+### The receive side
+
+`Statifier::BasicHTTP.decode` turns a request a host's own server took into the
+event it carries, as the reference's decoder does; the gem runs no server. It
+takes the method, the content type, the body, the query string and the
+`scxml-send-key` header's value, and answers a `Statifier::Result` holding a
+`Statifier::Event` or a `Statifier::BasicHTTP::Refusal`:
+
+| Request | Event |
+|---|---|
+| a method other than POST | refused, `:method_not_allowed`: answer 405 with `Allow: POST` |
+| a query string or body that does not decode to UTF-8 | refused, `:not_utf8`: answer 400 |
+| an `scxml-send-key` that is not eight fields joined by `/` | refused, `:malformed_send_key`: answer 400 |
+| a `_scxmleventname` field, in the query string or a form body | its first value, the query string's first, is the name |
+| no `_scxmleventname` | the name is `HTTP.POST` |
+| a form body | its other fields and the query string's are the data, a Hash, each value read as a `<content>` body's text is (`2` is the number 2), the last of a repeated name winning |
+| a body of any other content type, JSON included | the body is the data, read the same way; the query string gives the name only |
+
+The event's `origintype` is `EVENT_PROCESSOR`. A server resolves the request's
+location to the session it holds, passes the event's `name` and `data` to
+`Statifier.step`, and answers 204; deduplicating on the `scxml-send-key` value
+is the server's. `Statifier.step` takes a name and data, so the chart reads no
+`_event.origintype` for the event.
+
+```ruby
+decoded = Statifier::BasicHTTP.decode(method: "POST", content_type: "application/x-www-form-urlencoded",
+                                      body: "_scxmleventname=e.go&n=2", query: nil)
+decoded.value.name # => "e.go"
+decoded.value.data # => {"n" => 2}
+```
+
+### The HTTP transport
 
 A transport is anything that responds to `call`: a lambda, a method object or
 an object. It takes one request and makes it, and either answers the response
@@ -420,7 +549,7 @@ What is not claimed yet:
 - `w3c/test330` and `w3c/test552`, the two mandatory w3c cases the run fails,
   the reference's registry does not claim them either.
 - Twelve optional w3c cases whose host needs the Basic HTTP Event I/O
-  Processor, which this package does not provide.
+  Processor, which the conformance runner does not provide yet.
 
 Running the gate prints the gap list: every unclaimed case with the features it
 needs and whether it passes or why it fails.
@@ -431,9 +560,10 @@ needs and whether it passes or why it fails.
   - Every public method and class carries a YARD doc comment in `lib/`:
     the `Statifier` module's eight calls and `Statifier::Result`, the driver's
     values (`Statifier::Driver::Moved` and `DoneStatus`), `Statifier::Effect`,
-    `Statifier::Event` and `Statifier::Position`, and the HTTP transport's
-    request, response, error and default transport under
-    `Statifier::BasicHTTP`.
+    `Statifier::Event` and `Statifier::Position`, and under
+    `Statifier::BasicHTTP` the processor, its failure, the decoder and its
+    refusal, and the HTTP transport's request, response, error and default
+    transport.
   - [The changelog](CHANGELOG.md): what changed in each version.
   - [The conformance apparatus](conformance/README.md): what is vendored, from
     where, and how the check, the runner and the ratchet work.
