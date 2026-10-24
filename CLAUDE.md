@@ -214,10 +214,16 @@ virtual clock in its state, an immutable value, routes every send the core
 answers (a send to `#_internal` through the loop's internal delivery), and
 hands a send of a registered type to the host's processor, passed per call.
 The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
-are public with it. The conformance runner drives every case through it;
+are public with it. Beside it, `Statifier.export_position` and
+`Statifier.import_position` (the bodies in `Statifier::Position`,
+`lib/statifier/position.rb` and `lib/statifier/position/`) write a state out as a position, plain data in
+the reference's string-id vocabulary, and read one back in. The
+conformance runner drives every case through the driver;
 the registry holds the scion cases the runner passes, and the gate's registry
 stage prints the gap list, every unclaimed case with the features it needs
-and whether it passes or why it fails.
+and whether it passes or why it fails. The tests also run the position
+round-trip property over every point of the scion suite
+(`test/conformance/position_property.rb`).
 The 2019 stub is gone.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried

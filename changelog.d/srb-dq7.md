@@ -1,0 +1,4 @@
+### Added
+
+* `Statifier.export_position(state)` writes a chart's execution out as a position: a frozen Hash with String keys in the reference's string-id vocabulary (the configuration, the entered states, the states to invoke, the recorded history, the live invocations, the counters, the datamodel with each value as tagged-value text, and the running flag and status), ready for JSON. It refuses a state whose internal queue holds an event, a state holding a state with no id, and a datamodel value the tagged-value encoding has no form for.
+* `Statifier.import_position(machine, position, processors: {})` reads a position back in as a driver state over `machine`. It refuses a value that is not a position (`:malformed_export`) and ids `machine` holds no state for (`:unknown_state_ids`); the virtual clock, pending timers and queued events start empty, as a position does not carry them.

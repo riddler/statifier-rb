@@ -75,7 +75,7 @@ module Conformance
       return "the case's host object (#{item["host"].keys.join(", ")}) is not honoured here" if item.key?("host")
       return unless item.fetch("steps").any? { _1.key?("expect_position") }
 
-      "a step states an exported position, which this package does not export"
+      "a step states an exported position, which this runner does not compare yet"
     end
 
     # The start and every step, compared in turn.

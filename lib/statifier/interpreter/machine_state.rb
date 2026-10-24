@@ -21,9 +21,14 @@ module Statifier
     # last external event, nil before one; `running`, false once a
     # top-level final is entered; `status`, `:running`, or `:done` once the
     # chart has stopped; the counters `macrostep`, `microstep` and `round`;
-    # `trace`, whether the loop answers trace effects; and
+    # `trace`, whether the loop answers trace effects;
     # `max_macrostep_rounds`, the round budget, a positive Integer or
-    # `:infinity`.
+    # `:infinity`; `active_invocations`, the live invocations, a frozen Hash
+    # of `[state_index, invoke_index]` to the invocation's id; and
+    # `invoke_counter`, the sequence a generated invoke id is minted from.
+    # The invoke pass starts no invocation, so the last two keep what the
+    # position the state was imported from carried ({Statifier::Position}),
+    # empty and zero for a chart that was started.
     #
     # The counters: `macrostep` advances once when the chart starts and once
     # per external event, and starts the other two over; `microstep`
@@ -35,7 +40,7 @@ module Statifier
     MachineState = ::Data.define(
       :machine, :configuration, :history, :datamodel, :internal_queue, :entered_states, :states_to_invoke,
       :sends, :caller_context, :clock, :last_selection, :running, :status, :macrostep, :microstep, :round,
-      :trace, :max_macrostep_rounds
+      :trace, :max_macrostep_rounds, :active_invocations, :invoke_counter
     ) do
       # The {Snapshot} selection, exit and entry read.
       def snapshot = Snapshot.new(machine:, configuration:, history:)
@@ -111,7 +116,7 @@ module Statifier
       EMPTY = {
         configuration: [].freeze, history: {}.freeze, internal_queue: [].freeze, entered_states: [].freeze,
         states_to_invoke: [].freeze, caller_context: nil, clock: nil, last_selection: nil, running: true,
-        status: :running, macrostep: 0, microstep: 0, round: 0
+        status: :running, macrostep: 0, microstep: 0, round: 0, active_invocations: {}.freeze, invoke_counter: 0
       }.freeze
 
       # A fresh position over `machine`: nothing entered, the counters at
