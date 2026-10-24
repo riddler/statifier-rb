@@ -197,18 +197,30 @@ module Conformance
     end
     private_class_method :unclaimed_line
 
-    # One line per case that fails in results (Runner.run's), in the
-    # reference's order (the manifest's suites, each suite's cases as the
-    # file lists them): the case, the features it needs (its
-    # required_features) and why it fails.
-    def self.failing_lines(corpus, results)
+    # The gap list: one line per case this package's registry (entries, its
+    # entries) does not claim, in the reference's order (the manifest's
+    # suites, each suite's cases as the file lists them): the case, the
+    # features it needs (its required_features) and where it stands in
+    # results (Runner.run's), either "passes" or "fails" with why. A case
+    # that passes is on the list until the ratchet claims it.
+    def self.gap_lines(corpus, entries, results)
+      claimed = entries.to_h { |entry| [entry["case_id"], true] }
       corpus.cases.filter_map do |item|
-        result = results.fetch(item.fetch("id"))
-        next if result["result"] == "pass"
+        next if claimed.key?(item.fetch("id"))
 
-        "conformance: failing: #{item["id"]} (needs #{Array(item["required_features"]).join(", ")}): " \
-          "#{result["reason"]}"
+        "conformance: gap: #{item["id"]} (needs #{needs(item)}): #{standing(results.fetch(item.fetch("id")))}"
       end
     end
+
+    def self.needs(item)
+      features = Array(item["required_features"])
+      features.empty? ? "no feature" : features.join(", ")
+    end
+    private_class_method :needs
+
+    def self.standing(result)
+      result["result"] == "pass" ? "passes, not yet claimed" : "fails: #{result["reason"]}"
+    end
+    private_class_method :standing
   end
 end

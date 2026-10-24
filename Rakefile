@@ -58,7 +58,7 @@ task :registry do
   entries = JSON.parse(bytes)["entries"]
   puts(entries.empty? ? "registry: no claim is made" : "registry: #{entries.size} entries pass today")
   puts Conformance::Runner.unclaimed_lines(corpus, entries, Conformance::Records.reference_entries)
-  puts Conformance::Runner.failing_lines(corpus, results)
+  puts Conformance::Runner.gap_lines(corpus, entries, results)
 end
 
 # The only writer of conformance/registry.json: it runs the whole corpus now

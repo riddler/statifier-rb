@@ -216,7 +216,8 @@ hands a send of a registered type to the host's processor, passed per call.
 The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
 are public with it. The conformance runner drives every case through it;
 the registry holds the scion cases the runner passes, and the gate's registry
-stage prints every case that fails, with the features it needs.
+stage prints the gap list, every unclaimed case with the features it needs
+and whether it passes or why it fails.
 The 2019 stub is gone.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried

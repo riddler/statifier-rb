@@ -90,8 +90,9 @@ into the run. It drives each case through the package's driver
 clock that settles 100 virtual milliseconds before each event and waits at
 most 4000 virtual milliseconds after it, the two knobs of the reference's
 harness. A case carrying a `host` object, or a step stating an exported
-position, fails naming what it asks for. No case is claimed in this
-registry yet, so every case is unclaimed however the run answers it.
+position, fails naming what it asks for. This registry claims the scion
+suite, every one of its cases; the w3c and statifier cases are unclaimed
+however the run answers them.
 
 An excluded document is not in the corpus at all, so it is not a case and
 is counted nowhere; `exclusions.json` is copied for its reasons. A case in
@@ -116,8 +117,9 @@ would not have written. Before the first entry the registry carries the pin,
 no claims and no entries, and the check says that no claim is made. The
 copy's `schema/registry.json` refuses that file, since an empty registry
 makes no claim; that was this registry's shape until a run passed a case.
-The stage then prints one line per case that fails in the run, in the
-reference's order, with the features it needs.
+The stage then prints the gap list: one line per case the registry does
+not claim, in the reference's order, with the features it needs and either
+"passes, not yet claimed" or why it fails in the run.
 
 **Refresh.** Moving the copy to another tag is a change of its own, reviewed
 like code. `rake "corpus:refresh[TAG,CLONE]"` reads the tag from `CLONE`, a
