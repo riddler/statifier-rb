@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "minitest/mock"
 require_relative "datamodel_helper"
 
 # Datamodel::Stores: each store's root read from the instruction list, and
@@ -64,5 +65,44 @@ class StoresTest < Minitest::Test
 
     assert_includes executed.error.error.reason, "statifier:unread() raised"
     assert_equal "x", executed.data["r"]
+  end
+
+  # Every instruction of instruction-set version 6 with the depth it moves
+  # by: nil where an operand gives it, :jump for a jump.
+  ISA6 = {
+    "lit" => 1, "load" => 1, "object_new" => 1, "duration" => 1, "pop" => -1, "compare" => -1, "add" => -1,
+    "subtract" => -1, "multiply" => -1, "divide" => -1, "modulo" => -1, "bracket_access" => -1, "in" => -1,
+    "contains" => -1, "object_set" => -1, "not" => 0, "unary_bang" => 0, "unary_minus" => 0, "access" => 0,
+    "relative_date" => 0, "cast" => 0, "make_list" => nil, "call" => nil, "store" => nil, "jump" => :jump,
+    "pop_jump_if_falsy" => :jump, "jump_if_falsy_or_pop" => :jump, "jump_if_true_or_pop" => :jump,
+    "jump_backward" => :jump
+  }.freeze
+
+  # sabotage: drop "cast" => 0 from Stores::EFFECTS; the assert_equal on the
+  # table fails.
+  def test_every_instruction_of_the_version_has_its_effect
+    table = S::OPCODES.to_h { [_1, S::JUMPS.key?(_1) ? :jump : S::EFFECTS[_1]] }
+
+    assert_equal [6, ISA6], [S::ISA_VERSION, table]
+    assert_equal({ 3 => "x" }, S.roots(Predicator.compile_program!("x = y::integer")).select { _2 })
+  end
+
+  # sabotage: drop the OPCODES check from Stores.readable? and give an
+  # unlisted instruction effect 0 (EFFECTS.fetch(opcode, 0)) in
+  # Stores.effect; the assert_equal fails, as the store into _event is read
+  # as a store into "a".
+  def test_an_instruction_the_table_does_not_list_leaves_no_store_read
+    instructions = [%w[lit _event], %w[lit a], %w[lit a], ["make_list", 1], ["mystery"], ["store", 1]]
+
+    assert_equal({ 5 => nil }, S.roots(instructions))
+    assert_equal ["call", S::UNREAD, 0], S.guarded(instructions, ["_event"]).last
+  end
+
+  # sabotage: drop "Predicator.isa_version == ISA_VERSION &&" from
+  # Stores.readable?; the assert_equal fails, as the store is read.
+  def test_another_instruction_set_version_leaves_no_store_read
+    instructions = Predicator.compile_program!("x = 1")
+
+    Predicator.stub(:isa_version, 7) { assert_equal({ 2 => nil }, S.roots(instructions)) }
   end
 end

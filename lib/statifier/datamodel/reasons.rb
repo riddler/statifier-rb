@@ -63,6 +63,16 @@ module Statifier
     # @api private
     InvalidLocation = ::Data.define(:location)
 
+    # A location's bracket key is a computed expression, which the
+    # reference refuses as an assignment target key; `message` is the
+    # reference's.
+    #
+    # @api private
+    ComputedKey = ::Data.define(:location) do
+      # @return [String] the reference's message for the refusal
+      def message = "Cannot use computed expression as assignment target key"
+    end
+
     # A delay that is not one: text predicator's duration parser refuses, or
     # a value that is neither text nor a duration.
     #

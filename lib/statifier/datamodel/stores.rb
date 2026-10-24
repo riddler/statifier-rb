@@ -35,13 +35,26 @@ module Statifier
       JUMPS = { "jump" => false, "pop_jump_if_falsy" => false, "jump_if_falsy_or_pop" => false,
                 "jump_if_true_or_pop" => false, "jump_backward" => true }.freeze
 
-      # The stack effect of each instruction whose effect is fixed; one not
-      # listed leaves the depth as it is.
+      # The instruction-set version the tables here were written for. On any
+      # other version no store is read: every store becomes {UNREAD}.
+      ISA_VERSION = 6
+
+      # The stack effect of each instruction of that version whose effect is
+      # fixed, the ones that leave the depth as it is listed too.
       EFFECTS = {
         "lit" => 1, "load" => 1, "object_new" => 1, "duration" => 1, "pop" => -1,
         "compare" => -1, "add" => -1, "subtract" => -1, "multiply" => -1, "divide" => -1, "modulo" => -1,
-        "bracket_access" => -1, "in" => -1, "contains" => -1, "object_set" => -1
+        "bracket_access" => -1, "in" => -1, "contains" => -1, "object_set" => -1,
+        "not" => 0, "unary_bang" => 0, "unary_minus" => 0, "access" => 0, "relative_date" => 0, "cast" => 0
       }.freeze
+
+      # The instructions whose effect is read from an operand.
+      COUNTED = %w[make_list call store].freeze
+
+      # Every instruction of that version the depths are computed over. A
+      # program holding any other (a retired one or a later version's) has no
+      # store read: every store becomes {UNREAD}.
+      OPCODES = (EFFECTS.keys + COUNTED + JUMPS.keys).freeze
 
       module_function
 
@@ -59,14 +72,29 @@ module Statifier
 
       # The root each reachable store writes, by the store's index: the
       # name, or nil for a store whose root is not a named `lit` (none of
-      # predicator's compiled programs has one).
+      # predicator's compiled programs has one), and nil for every store of
+      # a program whose stores cannot be read ({readable?}).
       def roots(instructions)
+        return unread(instructions) unless readable?(instructions)
+
         depths = depths(instructions)
         instructions.each_with_index.filter_map do |(opcode, count), at|
           next unless opcode == "store" && depths[at]
 
           [at, root_name(instructions, pusher(depths, at, depths[at] - count - 1))]
         end.to_h
+      end
+
+      # Whether the stores of `instructions` can be read: the instruction set
+      # is the version the tables were written for and every instruction is
+      # one of {OPCODES}.
+      def readable?(instructions)
+        Predicator.isa_version == ISA_VERSION && instructions.all? { OPCODES.include?(_1.first) }
+      end
+
+      # Every store of `instructions`, none read.
+      def unread(instructions)
+        instructions.each_index.select { instructions[_1].first == "store" }.to_h { [_1, nil] }
       end
 
       # The last instruction before `at` that a path reaches at `depth` or
@@ -111,7 +139,7 @@ module Statifier
         when "make_list" then 1 - operand
         when "call" then 1 - count
         when "store" then -1 - operand
-        else EFFECTS.fetch(opcode, 0)
+        else EFFECTS.fetch(opcode)
         end
       end
 
