@@ -1,0 +1,68 @@
+# frozen_string_literal: true
+
+require "test_helper"
+require_relative "datamodel_helper"
+
+# Datamodel::Stores: each store's root read from the instruction list, and
+# the list rewritten with its jumps moved.
+class StoresTest < Minitest::Test
+  include DatamodelHelper
+
+  S = D::Stores
+
+  # sabotage: search for depths[before] < depths[at] - count - 1 in
+  # Stores.roots; the assert_equal on the roots fails.
+  def test_each_store_names_the_root_its_target_begins_with
+    instructions = Predicator.compile_program!("a.b[c + 1] = 2; while (d < 1) { e = f[0] }; g = h or i")
+    stores = instructions.each_index.select { instructions[_1].first == "store" }
+
+    assert_equal stores.zip(%w[a e g]).to_h, S.roots(instructions)
+  end
+
+  # sabotage: give pop_jump_if_falsy's taken edge the depth unchanged in
+  # Stores.successors; the assert_equal on the depths fails.
+  def test_the_depth_before_each_instruction_follows_every_jump
+    instructions = Predicator.compile_program!("if (x) { y = 1 } else { y = 2 }")
+
+    assert_equal [0, 1, 0, 1, 2, 0, 0, 1, 2], S.depths(instructions)
+  end
+
+  # sabotage: answer the store unchanged for a protected root in Stores.piece;
+  # the assert_equal on the rewritten list fails.
+  def test_a_protected_store_becomes_the_guard_and_another_is_noted
+    rewritten = S.guarded(Predicator.compile_program!("x = 1; _event = 2"), ["_event"])
+    expected = [%w[lit x], ["lit", 1], ["store", 1], %w[lit x], %w[load x], ["call", S::NOTE, 2], ["pop"],
+                %w[lit _event], ["lit", 2], %w[lit _event], ["call", S::GUARD, 1]]
+
+    assert_equal expected, rewritten
+  end
+
+  # sabotage: move a jump by its old offset (answer [[opcode, offset]]) in
+  # Stores.relocated; the assert_equal on the offsets fails.
+  def test_every_jump_lands_where_it_landed_before
+    rewritten = S.guarded(Predicator.compile_program!("while (x < 3) { x = x + 1 }"), [])
+
+    assert_equal([["pop_jump_if_falsy", 11], ["jump_backward", 13]], rewritten.select { S::JUMPS.key?(_1.first) })
+    assert_equal({ "x" => 3 }, Predicator.execute!(rewritten, { "x" => 0 }, functions: { S::NOTE => ->(_r, _v) {} }))
+  end
+
+  # sabotage: answer [instruction] for a nil root in Stores.piece; the
+  # assert_equal on the rewritten list fails.
+  def test_a_store_whose_root_cannot_be_read_becomes_a_refusal
+    instructions = [%w[load r], ["lit", 1], ["store", 1]]
+
+    assert_equal({ 2 => nil }, S.roots(instructions))
+    assert_equal [%w[load r], ["lit", 1], ["call", S::UNREAD, 0]], S.guarded(instructions, ["r"])
+  end
+
+  # sabotage: drop the UNREAD function from Program.functions; the
+  # assert_equal on the reason fails, as the call names an unknown function.
+  def test_a_store_whose_root_cannot_be_read_fails_the_run_and_writes_nothing
+    instructions = [%w[lit r], %w[load r], ["lit", 1], ["store", 1]]
+    unread = Statifier::Machine::Program.new(instructions:, source: "s")
+    executed = D.execute(context({ "r" => "x" }), unread)
+
+    assert_includes executed.error.error.reason, "statifier:unread() raised"
+    assert_equal "x", executed.data["r"]
+  end
+end

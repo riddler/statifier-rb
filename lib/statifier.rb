@@ -5,6 +5,7 @@ require_relative "statifier/xml"
 require_relative "statifier/lowering"
 require_relative "statifier/validator"
 require_relative "statifier/compiler"
+require_relative "statifier/datamodel"
 
 # The interpreter core of an SCXML statechart engine.
 #
