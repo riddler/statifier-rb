@@ -251,8 +251,9 @@ The 2019 stub is gone.
   its evidence, never skipped or worked round here. An answer the corpus does
   not fix follows statifier-ex at that tag.
 
-`README.md` is a placeholder today and will become the user reference;
-`CHANGELOG.md` records each release.
+`README.md` is the user reference: the install, a basic-usage example, the
+driver surface and its results, effects, position export and import, the
+compatibility and the conformance claims; `CHANGELOG.md` records each release.
 
 ## Build & Test
 
