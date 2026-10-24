@@ -20,7 +20,16 @@ class W3cRegistryTest < Minitest::Test
   MANDATORY_UNCLAIMED = %w[w3c/test330 w3c/test552].freeze
 
   # The optional cases that need no host processor.
-  OPTIONAL_CLAIMED = %w[w3c/test193 w3c/test278].freeze
+  HOSTLESS_OPTIONAL = %w[w3c/test193 w3c/test278].freeze
+
+  # The optional cases that need the Basic HTTP processor and pass through
+  # the loopback front: every one but w3c/test201, which the reference
+  # leaves unclaimed too.
+  BASIC_HTTP_CLAIMED = %w[w3c/test509 w3c/test510 w3c/test518 w3c/test519 w3c/test520 w3c/test522 w3c/test531
+                          w3c/test532 w3c/test534 w3c/test567 w3c/test577].freeze
+
+  # The one case that needs the Basic HTTP processor and stays unclaimed.
+  BASIC_HTTP_UNCLAIMED = "w3c/test201"
 
   def w3c = CORPUS.cases_of("w3c")
 
@@ -46,13 +55,14 @@ class W3cRegistryTest < Minitest::Test
     assert_equal mandatory - MANDATORY_UNCLAIMED, claimed_ids("w3c-mandatory")
   end
 
-  # sabotage: delete the w3c/test193 line from the registry; the
+  # sabotage: delete the w3c/test509 line from the registry; the
   # assert_equal on the optional entries fails (the case is missing).
-  def test_w3c_optional_is_the_optional_cases_that_need_no_host_processor
-    assert_equal OPTIONAL_CLAIMED, claimed_ids("w3c-optional")
+  def test_w3c_optional_is_every_optional_case_but_test201
+    assert_equal (HOSTLESS_OPTIONAL + BASIC_HTTP_CLAIMED).sort, claimed_ids("w3c-optional").sort
     hostless = ids_where { _1["conformance"] == "optional" && !_1.key?("host") }
 
-    assert_equal OPTIONAL_CLAIMED, hostless
+    assert_equal HOSTLESS_OPTIONAL, hostless
+    assert_equal [BASIC_HTTP_UNCLAIMED], ids_where { _1["conformance"] == "optional" } - claimed_ids("w3c-optional")
   end
 
   # sabotage: delete the scion/actionSend/send1 line from the registry; the
@@ -72,28 +82,38 @@ class W3cRegistryTest < Minitest::Test
   end
 
   # sabotage: claim w3c/test201 in the registry; the assert_equal on the
-  # host-object cases fails (the registry then holds a case that needs
-  # the BasicHTTP processor).
-  def test_every_case_that_needs_the_basic_http_processor_stays_unclaimed
+  # claimed host-object cases fails.
+  def test_every_case_that_needs_the_basic_http_processor_is_claimed_but_test201
     host = ids_where { _1.dig("host", "event_io_processors") == BASIC_HTTP }
 
-    assert_equal 12, host.size
-    assert_empty host & REGISTRY["entries"].map { _1["case_id"] }
-    with_host = ids_where { _1.key?("host") }
-
-    assert_equal host, with_host
+    assert_equal [BASIC_HTTP_UNCLAIMED] + BASIC_HTTP_CLAIMED, host
+    assert_equal BASIC_HTTP_CLAIMED, host & REGISTRY["entries"].map { _1["case_id"] }
+    assert_equal(host, ids_where { _1.key?("host") })
   end
 
-  # sabotage: make Drive.unhonoured answer nil for a processor the table
-  # holds no entry for; the assert_match on the reason fails (the case then
-  # runs and its outcome differs).
-  def test_a_host_case_fails_naming_the_processor_the_drive_has_none_of
+  # sabotage: drop the reported-miss handling from Calls#arrive (answer
+  # `state` for every arrival); w3c/test509 then fails and the assert_equal
+  # on the passing host cases fails.
+  def test_the_basic_http_cases_pass_through_the_loopback_and_test201_fails_as_the_reference_does
     results = Conformance::Runner.run(CORPUS)
 
-    reason = results.fetch("w3c/test201")["reason"]
-
-    assert_equal "the case's host object names the Event I/O Processor #{BASIC_HTTP.first}, " \
-                 "which this package does not provide", reason
+    assert_equal(BASIC_HTTP_CLAIMED, BASIC_HTTP_CLAIMED.select { results.fetch(_1)["result"] == "pass" })
+    assert_equal 'the initial configuration: expected active leaf states ["pass"], got ["fail"]',
+                 results.fetch(BASIC_HTTP_UNCLAIMED)["reason"]
     MANDATORY_UNCLAIMED.each { assert_equal "fail", results.fetch(_1)["result"] }
+  end
+
+  # The vendored reference registry, the reference's own at the tag the copy
+  # names.
+  REFERENCE = Conformance::Records.read(File.join(Conformance::ROOT, Conformance::VENDORED_DIR, "registry.json"))
+
+  # sabotage: delete the w3c/test577 line from the registry; the
+  # assert_equal on the entries fails.
+  def test_the_registry_holds_the_reference_registry_entries_and_claims
+    assert_equal REFERENCE["entries"], REGISTRY["entries"]
+    assert_equal REFERENCE["claims"], REGISTRY["claims"]
+    assert_equal REFERENCE["corpus_hash"], REGISTRY["corpus_hash"]
+    assert_equal({ "scion" => 119, "statifier" => 36, "w3c" => 165 },
+                 REGISTRY["entries"].map { _1["suite"] }.tally)
   end
 end

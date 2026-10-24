@@ -4,16 +4,19 @@ require_relative "corpus"
 require_relative "host"
 require_relative "accepts"
 require_relative "position_expectation"
+require_relative "loopback"
 require_relative "../../lib/statifier"
 
 module Conformance
   # The driver's calls as a drive makes them: with the processors the
   # drive registers, and, with a host, each answered state handed to the
   # host to report the sends the call handed that it marked failed
-  # (Host#report), before anything reads it.
-  Calls = ::Data.define(:machine, :processors, :host) do
-    # The calls with no processor and no host.
-    def self.plain = new(machine: nil, processors: {}, host: nil)
+  # (Host#report), before anything reads it; with a wire (a
+  # Loopback::Wire), what the loopback front took and the processor
+  # reported is then exchanged with the driver (#exchange).
+  Calls = ::Data.define(:machine, :processors, :host, :wire) do
+    # The calls with no processor, no host and no wire.
+    def self.plain = new(machine: nil, processors: {}, host: nil, wire: nil)
 
     def start(session_id) = after(Statifier.start(machine, session_id:, processors:))
 
@@ -21,10 +24,45 @@ module Conformance
 
     def advance(state, milliseconds) = after(Statifier.advance(state, milliseconds, processors:))
 
-    # The state a call answered, the host's reports made.
-    def after(result)
-      state = Drive.moved(result)
-      host.nil? ? state : host.report(machine, state, processors)
+    # The state a call answered, the host's reports made and the wire's
+    # arrivals exchanged.
+    def after(result) = exchange(reported(Drive.moved(result)))
+
+    # `state` after the host has reported the sends it marked failed.
+    def reported(state) = host.nil? ? state : host.report(machine, state, processors)
+
+    # `state` after every arrival on the wire is handed to the driver, in
+    # the order it arrived, as the reference's front enqueues an event on
+    # the session and its processor reports a miss to it: an event the
+    # front took is stepped into the session with its name and data, and a
+    # miss is reported through Statifier.report_send_failed, each followed
+    # by the host's reports. A call refused because the chart has stopped,
+    # or a report refused while a round budget halts it, is dropped, as the
+    # reference's session drops it; any other refusal raises. Past the
+    # wire's round bound it raises Loopback::NotSettled.
+    def exchange(state)
+      return state if wire.nil?
+
+      wire.exchange(state) { |current, arrival| reported(arrive(current, arrival)) }
+    end
+
+    # The state after one arrival is handed to the driver.
+    def arrive(state, arrival)
+      result = handed(state, arrival)
+      return result.value.state if result.ok?
+      return state if Host::DROPPED.include?(result.error)
+
+      raise "the driver refused #{arrival.kind == :event ? "a delivered event" : "a reported miss"}: " \
+            "#{result.error.inspect}"
+    end
+
+    # What the driver answered for one arrival: an event stepped in, or a
+    # miss reported.
+    def handed(state, arrival)
+      value = arrival.value
+      return Statifier.step(state, value.name, data: value.data, processors:) if arrival.kind == :event
+
+      Statifier.report_send_failed(machine, state, value.effect, reason: value.reason, processors:)
     end
   end
 
@@ -76,8 +114,16 @@ module Conformance
   # (`@event_io_processors` and `with_event_io_processors/2` in
   # lib/mix/statifier/corpus/host_case.ex). The drive registers with the
   # driver, on every call, each processor PROVIDED holds for a URI the case
-  # names, under every send type that entry names, and fails a case naming a
-  # URI PROVIDED holds no entry for, naming that URI.
+  # names, made with the case's in-memory loopback front
+  # (Conformance::Loopback, test/conformance/loopback.rb) as its transport,
+  # under every send type that entry names, and fails a case naming a URI
+  # PROVIDED holds no entry for, naming that URI. After every driver call,
+  # each event the front took is stepped into the session and each miss the
+  # processor reported is reported through {Statifier.report_send_failed},
+  # until nothing more arrives, within Loopback::MAX_EXCHANGE_ROUNDS rounds;
+  # a case past the bound fails naming it. A request over the loopback
+  # takes no virtual time, so an event it delivers is taken at the virtual
+  # time its send was made, ahead of any timer the clock has yet to reach.
   #
   # A case's `host.send_types` and `host.expect_sends` are read as the
   # reference's harness reads them (`run/2` and `handed/2` in
@@ -129,11 +175,12 @@ module Conformance
 
     # The Event I/O Processors this package provides, by the URI a case's
     # `host.event_io_processors` names them under: each entry is a callable
-    # answering a Hash of send type to processor (an object answering
-    # `deliver`), every type the processor is registered under. It is empty
-    # until the package provides a processor; a release that adds one adds
-    # its entry here and nowhere else.
-    PROVIDED = {}.freeze
+    # taking the case's Loopback::Wire and answering a Hash of send type to
+    # processor (an object answering `deliver`), every type the processor is
+    # registered under. Its one member is the Basic HTTP processor
+    # (Loopback::PROCESSORS); a release that adds a processor adds its entry
+    # there and nowhere else.
+    PROVIDED = Loopback::PROCESSORS
 
     # The diff pair's host keys: accepted, and compared by nothing here.
     UNCOMPARED_HOST_KEYS = %w[to_source expect_diff mapping expect_compatible_at].freeze
@@ -155,9 +202,21 @@ module Conformance
       unnamed = PositionExpectation.expected?(item) && PositionExpectation.named(machine)
       return unnamed if unnamed
 
+      hosted(item, machine, provided)
+    end
+
+    # The answer for a case that compiled: driven with its host, the
+    # processors `provided` holds for it made with its loopback wire, and
+    # its host's verdict on the sends; a case whose exchange passes the
+    # wire's round bound fails naming the bound.
+    def self.hosted(item, machine, provided)
       host = Host.for(item)
-      driven = drive(item, machine, host.processors.merge(registered(item, provided)), host)
+      wire = Loopback::Wire.new(item.fetch("id"))
+      processors = host.processors.merge(wire.register(Loopback.named(item.fetch("host", {})), provided))
+      driven = drive(item, machine, processors, host, wire)
       driven == :pass ? host.verdict : driven
+    rescue Loopback::NotSettled => e
+      e.message
     end
 
     # What the case asks of its host that this runner does not honour, or
@@ -168,37 +227,14 @@ module Conformance
       other = host.keys - HONOURED_HOST_KEYS
       return "the case's host object (#{other.join(", ")}) is not honoured here" unless other.empty?
 
-      not_provided(host, provided)
-    end
-
-    # The processors the host object names that `provided` holds no entry
-    # for, as the reason, or nil.
-    def self.not_provided(host, provided)
-      missing = named(host).reject { provided.key?(_1) }
-      return if missing.empty?
-
-      "the case's host object names the Event I/O Processor #{missing.join(", ")}, " \
-        "which this package does not provide"
-    end
-
-    # The URIs a host object's `event_io_processors` names, in order; a value
-    # that is not a list is named whole, as it came, so it is refused.
-    def self.named(host)
-      value = host.fetch("event_io_processors", [])
-      value.is_a?(Array) ? value : [value.inspect]
-    end
-
-    # The processors to hand the driver on every call for item: the send
-    # types of every entry of `provided` the case names.
-    def self.registered(item, provided)
-      named(item.fetch("host", {})).each_with_object({}) { |uri, types| types.merge!(provided.fetch(uri).call) }
+      Loopback.not_provided(host, provided)
     end
 
     # The start and every step, compared in turn; processors go with every
-    # call, as the driver asks, and a host reports its failed sends after
-    # each.
-    def self.drive(item, machine, processors = {}, host = nil)
-      calls = Calls.new(machine:, processors:, host:)
+    # call, as the driver asks, a host reports its failed sends after each,
+    # and what the wire brought back is exchanged.
+    def self.drive(item, machine, processors = {}, host = nil, wire = nil)
+      calls = Calls.new(machine:, processors:, host:, wire:)
       state = await(calls.start(item.fetch("id")), item.fetch("initial_configuration"), 0, calls)
       failed = compare(state, item.fetch("initial_configuration"), "the initial configuration")
       return failed if failed

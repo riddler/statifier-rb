@@ -92,8 +92,20 @@ most 4000 virtual milliseconds after it, the two knobs of the reference's
 harness. A case's `host.event_io_processors` names the Event I/O
 Processors its host runs: the drive registers with the driver every
 processor its table (`Conformance::Drive::PROVIDED`, keyed by the URI the case
-names, empty until the package provides one) holds for a named URI, and fails
-a case naming a URI the table does not hold, naming that URI. A case's
+names; its one entry is the package's Basic HTTP Event I/O Processor) holds
+for a named URI, and fails a case naming a URI the table does not hold,
+naming that URI. The processor is made for each case with an in-memory
+loopback front (`Conformance::Loopback` in `test/conformance/loopback.rb`)
+as its transport, in place of the HTTP server on a local port the
+reference's harness starts: the front answers by the reference front's
+status rule, decodes each request with `Statifier::BasicHTTP.decode` and
+holds the event, and once each driver call returns the drive steps each
+event the front took into the session and reports each miss the processor
+reported through `Statifier.report_send_failed`, until nothing more
+arrives. No socket is opened, so these cases prove the processor and the
+core's event path, not a network round trip. A request over the loopback
+takes no virtual time, so an exchange is bounded at 100 rounds, and a case
+past the bound fails naming it. A case's
 `host.send_types` and `host.expect_sends` are read as the reference's
 host-case harness reads them: a host of the case's own
 (`Conformance::Host` in `test/conformance/host.rb`) is registered under
@@ -137,8 +149,10 @@ claim covers its mandatory entries, the `w3c-optional` claim its optional
 ones and the `statifier` claim its statifier entries, since a claim is the
 set of its entries (the copy's `RATCHET.md`, "Claims"), not a statement
 that every case of the suite passes. The w3c cases left out are the two
-mandatory cases the run fails and the optional cases whose host object
-names the BasicHTTP processor, which the drive does not provide. Beside the
+mandatory cases the run fails and `w3c/test201`, an optional case whose
+host object names the Basic HTTP processor and which the run fails, as the
+reference's registry leaves all three out; the registry holds the same
+entries and claims as the reference's. Beside the
 drive, the position round-trip
 property (`test/conformance/position_property.rb`), a test of the gate,
 takes a point after the start and after every step of each scion case,
