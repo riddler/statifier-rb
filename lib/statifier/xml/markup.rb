@@ -99,6 +99,7 @@ module Statifier
         low, high = [angle, bracket].minmax
         refuse_ambiguous_doctype(start) if @cursor.text.byteslice(low, high - low).include?("<")
         @cursor.move_to(angle)
+        @doctype = true
       end
 
       def refuse_ambiguous_doctype(start)

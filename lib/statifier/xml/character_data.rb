@@ -14,7 +14,11 @@ module Statifier
     # read the raw source, so a CR followed by a comment is a lone CR.
     #
     # The five predefined entities and decimal and hex character references
-    # expand in text and in attribute values; any other reference is refused.
+    # expand in text and in attribute values. Any other entity reference is
+    # refused in a document with no document type declaration, where it can
+    # name no declared entity. In a document with one, a reference to any
+    # other name is kept as its literal text (`&name;`), as the reference
+    # keeps it: the declarations are not read, so nothing expands it.
     #
     # @api private
     module CharacterData
@@ -101,7 +105,13 @@ module Statifier
         body = @cursor[1]
         return character_reference(body, at) if body.start_with?("#")
 
-        PREDEFINED.fetch(body) { @cursor.refuse(:unknown_entity, "&#{body}; is not a predefined entity", at) }
+        PREDEFINED.fetch(body) { entity_reference(body, at) }
+      end
+
+      def entity_reference(body, at)
+        return "&#{body};" if @doctype && body.match?(Tags::WHOLE_NAME)
+
+        @cursor.refuse(:unknown_entity, "&#{body}; is not a predefined entity", at)
       end
 
       def character_reference(body, at)

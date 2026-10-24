@@ -20,6 +20,7 @@ module Statifier
         @cursor = Cursor.new(text)
         @stack = []
         @run = nil
+        @doctype = false
       end
 
       # @return [Element] the root element
