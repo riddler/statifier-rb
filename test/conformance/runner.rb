@@ -110,8 +110,14 @@ module Conformance
       result.value.state
     end
 
-    # The earliest due time of a pending timer, or nil.
-    def self.earliest_due(state) = state.timers.map(&:due_ms).min
+    # The earliest due time of a pending timer, or nil: the session's own,
+    # or one of an invoked child's, which run on the same clock.
+    def self.earliest_due(state) = due_times(state).min
+
+    # The due times of the pending timers of the session and its children.
+    def self.due_times(state)
+      state.timers.map(&:due_ms) + state.invocations.values.flat_map { due_times(_1.child) }
+    end
 
     # The settle window.
     def self.settle(state)

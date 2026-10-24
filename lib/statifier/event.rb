@@ -25,8 +25,11 @@ module Statifier
     # block), `{kind: :state, state_index:}` (a completion, or a failed
     # `<donedata>` `<content>`), `{kind: :transition, t_index:}` (a failed
     # condition), `{kind: :data, d_index:}` (a failed `<data>`),
-    # `{kind: :donedata_param, state_index:, param_index:}` and
-    # `{kind: :global_script, index:}`.
+    # `{kind: :donedata_param, state_index:, param_index:}`,
+    # `{kind: :global_script, index:}`, `{kind: :invoke, state_index:,
+    # invoke_index:}` (an `<invoke>` that failed to start) and
+    # `{kind: :finalize, state_index:, invoke_index:}` (a write of an empty
+    # `<finalize>` that failed).
     Cause = ::Data.define(:origin, :macrostep, :microstep, :round)
 
     # The fields an event the chart raised leaves blank.

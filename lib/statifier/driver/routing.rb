@@ -82,24 +82,32 @@ module Statifier
 
       # A built-in send routed: to the session itself (no target, or its own
       # `#_scxml_` address) onto the external queue, counted when the send
-      # was undelayed; to `#_internal` onto the internal queue; anything
+      # was undelayed; to `#_internal` onto the internal queue; to
+      # `#_parent` into the parent's mailbox, counted there when undelayed;
+      # to `#_<invokeid>` onto that live child's external queue; anything
       # else reaches nothing.
       def route(work, send, undelayed:)
+        event = -> { delivered_event(send, work.state.session_id) }
         case destination(work, send)
-        when :external then [enqueue(work, delivered_event(send, work.state.session_id), counted: undelayed), []]
+        when :external then [enqueue(work, event.call, counted: undelayed), []]
         when :internal then internal(work, send, undelayed)
+        when :parent then [Mailbox.to_parent(work, event.call, counted: undelayed), []]
+        when :invoke then [Mailbox.deliver(work, Interpreter::Targets.parse_target(send.target).id, event.call), []]
         else communication_error(work, send)
         end
       end
 
-      # Where a built-in send's target leads: `:external`, `:internal` or
+      # Where a built-in send's target leads: `:external`, `:internal`,
+      # `:parent` (a session that has one), `:invoke` (a live invocation) or
       # `:nowhere`.
       def destination(work, send)
         route = Interpreter::Targets.parse_target(send.target)
-        return :external if route.kind == :self || (route.kind == :session && route.id == work.state.session_id)
-
-        route.kind == :internal ? :internal : :nowhere
+        work.reaches?(route) ? DESTINATIONS.fetch(route.kind, :nowhere) : :nowhere
       end
+
+      # Where each kind of target leads when the session reaches it.
+      DESTINATIONS = { self: :external, session: :external, internal: :internal, parent: :parent,
+                       invoke: :invoke }.freeze
 
       # `event` joined to the external queue, marked as queued by an
       # undelayed send when `counted`.
@@ -152,7 +160,8 @@ module Statifier
         return [work, []] unless state.running
         return [work.with_machine(queued(state, kind, name, origin, fields)), []] if work.spent
 
-        handled = Interpreter::Loop.deliver_internal(state, kind, name, origin, **fields, clock: work.clock)
+        handled = Interpreter::Loop.deliver_internal(work.stamped.machine_state, kind, name, origin, **fields,
+                                                     clock: work.clock)
         [work.with_machine(handled.state), handled.effects]
       end
 

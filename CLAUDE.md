@@ -217,7 +217,12 @@ The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
 are public with it. Beside it, `Statifier.export_position` and
 `Statifier.import_position` (the bodies in `Statifier::Position`,
 `lib/statifier/position.rb` and `lib/statifier/position/`) write a state out as a position, plain data in
-the reference's string-id vocabulary, and read one back in. The
+the reference's string-id vocabulary, and read one back in. The driver runs
+an `<invoke>` of the SCXML type as an in-process child session
+(`lib/statifier/driver/invocations.rb` and `lib/statifier/driver/mailbox.rb`
+over the interpreter's invoke passes, `Interpreter::Invoke`), its session id
+its parent's, a dot and the invoke id, its effects among the call's effects
+as `Statifier::Effect::Child` values. The
 conformance runner drives every case through the driver;
 the registry holds the scion cases the runner passes, and the gate's registry
 stage prints the gap list, every unclaimed case with the features it needs

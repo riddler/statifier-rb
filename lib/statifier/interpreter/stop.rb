@@ -11,7 +11,8 @@ module Statifier
       module_function
 
       # `exitInterpreter`: every active state leaves in exit order, running
-      # its `<onexit>` blocks, with no history recorded; the top-level final
+      # its `<onexit>` blocks and then cancelling its live invocations, with
+      # no history recorded; the top-level final
       # among them, if any, yields the donedata, and with none the donedata
       # is nil. {Effect::Done} comes last, the status becomes `:done` and
       # the internal queue is emptied, taking any event the exits raised
@@ -41,6 +42,7 @@ module Statifier
       # after it.
       def leave((state, effects, donedata, error), index)
         left = Blocks.run_blocks(state, :onexit, index)
+        left = left.then_step(Invoke::Passes.cancel_invocations(left.state, index))
         state = left.state.with(configuration: (left.state.configuration - [index]).freeze)
         donedata, error, state = collect_donedata(state, index) if top_level_final?(state.machine, index)
         [state, effects + left.effects, donedata, error]

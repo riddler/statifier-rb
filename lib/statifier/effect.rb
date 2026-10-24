@@ -21,7 +21,10 @@ module Statifier
   # These are the effects the driver's calls answer a host
   # ({Driver::Moved}'s `effects`), and what a host's processor is handed.
   # Beside content's effects are the ones the interpreter's loop answers:
-  # {DatamodelInit}, {BudgetExhausted}, {Done} and the {Trace} effects.
+  # {DatamodelInit}, {BudgetExhausted}, {Done}, the invocation effects
+  # ({Invoke}, {CancelInvoke} and {Autoforward}) and the {Trace} effects.
+  # The driver adds one of its own, {Child}, which carries an effect an
+  # invoked child's run answered.
   module Effect
     module_function
 
@@ -75,11 +78,46 @@ module Statifier
     # `prior_value` the values at the path after and before. A write by
     # content carries its `c_index` and `owner` and a nil `d_index`; a
     # `<data>` that binds carries its `d_index`, its id as the one-segment
-    # path and the source, and a nil `c_index` and `owner`.
+    # path and the source, and a nil `c_index` and `owner`. The two writes
+    # no content node makes carry a nil `c_index` and `d_index`: an
+    # `<invoke>`'s `idlocation` write, owned by `{kind: :invoke,
+    # state_index:, invoke_index:}`, and each write an empty `<finalize>`
+    # makes, owned by `{kind: :finalize, state_index:, invoke_index:}`.
     DatamodelChange = ::Data.define(
       :location_path, :location_source, :new_value, :prior_value, :d_index, :c_index, :owner, :macrostep,
       :microstep, :round
     )
+
+    # An `<invoke>` started, for the driver to start its service. `type`
+    # and `src` are the resolved values, nil when the element wrote neither
+    # attribute of the pair; `params` is the `namelist` and `<param>` values
+    # as data (`Predicator::UNDEFINED` for none); `content` the `<content>`
+    # child's data, nil when it has none; `autoforward` the attribute;
+    # `invoke_id` always set, generated when the author named none;
+    # `state_index` the invoking state and `invoke_index` the element's
+    # position among that state's `<invoke>`s; and `caller_context` as
+    # {SendDelayed}'s.
+    Invoke = ::Data.define(
+      :invoke_id, :type, :src, :params, :content, :autoforward, :state_index, :invoke_index, :macrostep,
+      :microstep, :round, :caller_context
+    )
+
+    # A live invocation is cancelled: its invoking state, `state_index`,
+    # exits (or the chart stops) before it answered. `caller_context` as
+    # {SendDelayed}'s.
+    CancelInvoke = ::Data.define(:invoke_id, :state_index, :macrostep, :microstep, :round, :caller_context)
+
+    # An external event forwarded, unchanged, to the live invocation
+    # `invoke_id` names, whose `<invoke>` sets `autoforward`; `state_index`
+    # is its invoking state and `event` the {Event} whole.
+    Autoforward = ::Data.define(:invoke_id, :state_index, :event, :macrostep, :microstep, :round)
+
+    # An effect an invoked child's run answered, as the driver reports it
+    # among a call's effects: `session_id`, the child's session id (its
+    # parent's, a dot and the invoke id), and `effect`, the effect itself. A
+    # child's own child's effect is reported the same way, under its own
+    # session id.
+    Child = ::Data.define(:session_id, :effect)
 
     # The datamodel as the chart starts, before any `<data>` binds: the
     # host's values, the system variables over them and every `<data>` id

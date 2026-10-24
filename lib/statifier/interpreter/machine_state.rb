@@ -26,9 +26,8 @@ module Statifier
     # `:infinity`; `active_invocations`, the live invocations, a frozen Hash
     # of `[state_index, invoke_index]` to the invocation's id; and
     # `invoke_counter`, the sequence a generated invoke id is minted from.
-    # The invoke pass starts no invocation, so the last two keep what the
-    # position the state was imported from carried ({Statifier::Position}),
-    # empty and zero for a chart that was started.
+    # The invoke pass ({Invoke.invoke_pass}) records an invocation of the
+    # built-in type there, and the cancel of its state removes it.
     #
     # The counters: `macrostep` advances once when the chart starts and once
     # per external event, and starts the other two over; `microstep`

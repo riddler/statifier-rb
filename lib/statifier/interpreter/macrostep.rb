@@ -20,8 +20,7 @@ module Statifier
     # - A selection's trace carries the microstep the selection ran in,
     #   before the microstep it starts.
     #
-    # The invoke pass starts no invocation yet; it clears the states to
-    # invoke and answers its {Effect::Trace::InvokePass} naming them.
+    # The invoke pass is {Invoke.invoke_pass}.
     #
     # @api private
     module Macrostep
@@ -39,7 +38,7 @@ module Statifier
         effects += folded
         return stop(state, effects, outcome) unless state.running
 
-        state, invoked = invoke_pass(state)
+        state, invoked = Invoke.invoke_pass(state)
         after_invoke_pass(state, effects + invoked, outcome, budget)
       end
 
@@ -162,13 +161,6 @@ module Statifier
         return Stepped.new(state:, effects: selected) if transitions.empty?
 
         Stepped.new(state:, effects: selected).then_step(Step.microstep(state.begin_microstep, transitions))
-      end
-
-      # The invoke pass: the states entered since the last pass, in entry
-      # order, cleared, with its trace. No invocation starts yet.
-      def invoke_pass(state)
-        trace = Blocks.traced(state, Effect::Trace::InvokePass, state_indexes: state.states_to_invoke, invoke_ids: [])
-        [state.with(states_to_invoke: [].freeze), trace]
       end
 
       # The one effect that ends a macrostep: {Effect::Trace::MacrostepStable}
