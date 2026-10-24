@@ -4,9 +4,10 @@ require "test_helper"
 require_relative "runner"
 
 # The statifier suite, the reference's own cases, as the drive answers it:
-# every case of its library, send and system_variables groups passes but
-# the ones that ask for what the runner does not do yet, and each of those,
-# and every case of the other groups, fails with that named.
+# every case of its accepts, library, send and system_variables groups
+# passes but the ones that ask for what the runner does not do yet, and
+# each of those, and every case of the other groups, fails with that
+# named.
 class StatifierSuiteTest < Minitest::Test
   CORPUS = Conformance::Corpus.load
   CASES = CORPUS.cases_of("statifier")
@@ -23,8 +24,11 @@ class StatifierSuiteTest < Minitest::Test
   # sabotage: drop the exported-position refusal from Drive.unhonoured; the
   # same assert_equal fails (the position cases are then driven and pass,
   # their positions uncompared).
-  def test_every_library_send_and_system_variables_case_passes_but_what_the_runner_does_not_do_yet
-    groups = CASES.select { %w[library send system_variables].include?(group(_1)) }
+  # sabotage: answer the accepts check with its two lists swapped in
+  # Accepts.compare; the same assert_equal fails (the accepts case then
+  # disagrees).
+  def test_every_accepts_library_send_and_system_variables_case_passes_but_what_the_runner_does_not_do_yet
+    groups = CASES.select { %w[accepts library send system_variables].include?(group(_1)) }
     passing = groups.reject { position?(_1) }.map { _1["id"] }
 
     assert_equal passing, RESULTS.select { _2 == :pass }.keys

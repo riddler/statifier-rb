@@ -227,8 +227,13 @@ an `<invoke>` of the SCXML type as an in-process child session
 (`lib/statifier/driver/invocations.rb` and `lib/statifier/driver/mailbox.rb`
 over the interpreter's invoke passes, `Interpreter::Invoke`), its session id
 its parent's, a dot and the invoke id, its effects among the call's effects
-as `Statifier::Effect::Child` values. The
-conformance runner drives every case through the driver;
+as `Statifier::Effect::Child` values.
+`Statifier.check_accepts` (the body in `Statifier::Accepts`,
+`lib/statifier/accepts.rb`) compares the event names a host declares a
+chart accepts with the event descriptors the chart listens for and answers
+a `Statifier::AcceptsCheck` directly: the declared names no descriptor
+matches and the descriptors no declared name matches.
+The conformance runner drives every case through the driver;
 the registry holds the scion, w3c and statifier cases the runner passes
 (the claims `scion`, `statifier`, `w3c-mandatory` and `w3c-optional`), and
 the gate's registry stage prints the gap list, every unclaimed case with the

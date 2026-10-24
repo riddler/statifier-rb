@@ -96,8 +96,8 @@ Statifier.done?(stopped.value.state).value.configuration # => ["c"]
 
 ## The driver surface
 
-Nine calls make up the public surface. Each answers a `Statifier::Result`,
-which has `ok?`, `value` and `error`. A successful result has `error == nil`
+Ten calls make up the public surface. Nine of them answer a
+`Statifier::Result`, which has `ok?`, `value` and `error`. A successful result has `error == nil`
 and a failed one has `value == nil`; read `ok?` and not the value.
 
 | Call | Answers, in the result |
@@ -112,6 +112,9 @@ and a failed one has `value == nil`; read `ok?` and not the value.
 | `Statifier.export_position(state)` | the position, plain data ready for JSON, or a `Statifier::Position::Refusal` |
 | `Statifier.import_position(machine, position, processors:)` | a state, or a `Position::Refusal` |
 
+The tenth, `Statifier.check_accepts(machine, declared_events)`, refuses
+nothing and answers a `Statifier::AcceptsCheck` directly (below).
+
 `start` takes these options, each optional: `session_id:` (the id `_sessionid`
 reads; the driver mints one when it is absent), `datamodel:` (starting values
 for the datamodel), `processors:`, `max_macrostep_rounds:` (a positive Integer
@@ -119,6 +122,30 @@ or `:infinity`; 10000 when absent), `trace:` (whether the chart answers trace
 effects; false when absent) and `clock:`. The state is an immutable value that
 a call answers and the next call takes; a host reads it only through
 `configuration` and `done?`, and its members are internal.
+
+### Declared events
+
+`Statifier.check_accepts` compares the event names a host declares a chart
+accepts with the event descriptors the chart listens for, on its transitions
+from every state some path can enter. A descriptor matches a name as
+transition selection matches an event: `e`, `e.`, `e.*` and `*` all match
+`e.go`, and `e.gone` does not. It answers two frozen lists:
+`unreachable`, the declared names no descriptor matches, in the declaration's
+order; and `undeclared`, the descriptors that match no declared name, in
+document order. With `nil` for the declaration both lists are empty.
+
+```ruby
+machine = Statifier.compile(<<~SCXML).value
+  <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0">
+    <state id="a"><transition event="e.go" target="b"/></state>
+    <state id="b"><transition event="e.back" target="a"/></state>
+  </scxml>
+SCXML
+
+check = Statifier.check_accepts(machine, ["e.go", "e.stop"])
+check.unreachable # => ["e.stop"]
+check.undeclared  # => ["e.back"]
+```
 
 ### Refusals
 
@@ -318,11 +345,11 @@ claims to pass, and the gate fails if one of them does not.
 | Claim | Cases claimed | Of |
 |---|---|---|
 | `scion` | 119 | 119 cases in the scion suite |
-| `statifier` | 21 | 36 cases in the statifier suite |
+| `statifier` | 22 | 36 cases in the statifier suite |
 | `w3c-mandatory` | 152 | 154 mandatory cases in the w3c suite |
 | `w3c-optional` | 2 | 14 optional cases in the w3c suite |
 
-The registry holds 294 entries, which is the sum of the four rows. A claim is
+The registry holds 295 entries, which is the sum of the four rows. A claim is
 the set of its entries, not a statement that every case of its suite passes.
 
 What is not claimed yet:
@@ -331,10 +358,9 @@ What is not claimed yet:
   the reference's registry does not claim them either.
 - Twelve optional w3c cases whose host needs the Basic HTTP Event I/O
   Processor, which this package does not provide.
-- Fifteen cases of the `statifier` suite, the reference's own: the ten diff
-  cases and the accepts case, whose host keys the conformance runner does not
-  read yet; and the four cases that state an exported position, which it does
-  not compare yet.
+- Fourteen cases of the `statifier` suite, the reference's own: the ten diff
+  cases, whose host keys the conformance runner does not read yet; and the four
+  cases that state an exported position, which it does not compare yet.
 
 Running the gate prints the gap list: every unclaimed case with the features it
 needs and whether it passes or why it fails.
