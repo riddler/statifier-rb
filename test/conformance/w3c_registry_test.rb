@@ -75,13 +75,16 @@ class W3cRegistryTest < Minitest::Test
     assert_equal host, with_host
   end
 
-  # sabotage: make Drive.unhonoured answer nil for a host object; the
-  # assert_match on the reason fails (the case then runs and its outcome
-  # differs).
+  # sabotage: make Drive.unhonoured answer nil for a processor the table
+  # holds no entry for; the assert_match on the reason fails (the case then
+  # runs and its outcome differs).
   def test_a_host_case_fails_naming_the_processor_the_drive_has_none_of
     results = Conformance::Runner.run(CORPUS)
 
-    assert_match(/host object \(event_io_processors\) is not honoured/, results.fetch("w3c/test201")["reason"])
+    reason = results.fetch("w3c/test201")["reason"]
+
+    assert_equal "the case's host object names the Event I/O Processor #{BASIC_HTTP.first}, " \
+                 "which this package does not provide", reason
     MANDATORY_UNCLAIMED.each { assert_equal "fail", results.fetch(_1)["result"] }
   end
 end
