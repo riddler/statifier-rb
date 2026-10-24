@@ -239,6 +239,11 @@ seam the Basic HTTP processor makes requests through: a callable taking a
 frozen `Request` and answering a frozen `Response` or raising
 `TransportError`, with `NetHTTPTransport` on the standard library's
 Net::HTTP as the default.
+Beside it under the same require is the Basic HTTP Event I/O Processor,
+`Statifier::BasicHTTP::Processor`, which turns each send of its type into
+one POST through the transport and hands a miss to the host's `report:`
+for `Statifier.report_send_failed`, and `Statifier::BasicHTTP.decode`,
+which turns a request a host's server took into the event it carries.
 The conformance runner drives every case through the driver;
 the registry holds the scion, w3c and statifier cases the runner passes
 (the claims `scion`, `statifier`, `w3c-mandatory` and `w3c-optional`), and
