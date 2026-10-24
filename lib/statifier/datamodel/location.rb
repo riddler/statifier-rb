@@ -14,7 +14,10 @@ module Statifier
     # program `location = null` is one assignment whose target segments are
     # the instructions between the root's `lit` and the value's. Text that
     # is not exactly one assignment target is refused as an
-    # {InvalidLocation}.
+    # {InvalidLocation}. A bracket key is taken only in the forms the
+    # reference's location reader takes (a string literal, an integer
+    # literal, a negative integer literal, an identifier); any other key is
+    # refused as a {ComputedKey}, as the reference refuses it.
     #
     # @api private
     module Location
@@ -40,20 +43,63 @@ module Statifier
         compiled = Predicator.compile_program("#{location} = null")
         return refused(EvaluatorError.new(source: location, error: compiled.error)) unless compiled.ok?
 
-        instructions = compiled.value
+        shape_refusal(compiled.value, location) || (compiled.value[0...-2] + [["make_list", compiled.value.last[1]]])
+      end
+
+      # The refusal of compiled `location = null` instructions that are not
+      # one assignment target, or whose target has a computed key; nil when
+      # they are neither.
+      def shape_refusal(instructions, location)
         return refused(InvalidLocation.new(location:)) unless one_target?(instructions)
 
-        instructions[0...-2] + [["make_list", instructions.last[1]]]
+        refused(ComputedKey.new(location:)) unless plain_keys?(instructions[1...-2])
       end
 
       # Whether `instructions` are one store of null whose root is the first
       # instruction and stays on the stack to the store, so nothing but the
       # target runs.
       def one_target?(instructions)
+        return false unless Stores.readable?(instructions)
+
         depths = Stores.depths(instructions)
         instructions.one? { _1.first == "store" } && instructions.last.first == "store" &&
           instructions[-2] == ["lit", nil] && !Stores.root_name(instructions, 0).nil? &&
           depths[1...-1].all? { _1&.positive? }
+      end
+
+      # Whether every segment after the root is one the reference takes as a
+      # key: a name or a string literal (one `lit` of a String), an integer
+      # literal (one `lit` of an Integer), a negative one (that `lit` and
+      # `unary_minus`), or an identifier (one `load`), whose value the write
+      # then takes. Any other key is computed, and the reference refuses it.
+      def plain_keys?(segments)
+        until segments.empty?
+          taken = key_size(segments)
+          return false if taken.zero?
+
+          segments = segments.drop(taken)
+        end
+        true
+      end
+
+      # How many instructions the key at the head of `segments` takes, 0 when
+      # the head is not a key the reference takes.
+      def key_size(segments)
+        (opcode, operand), following = segments
+        case opcode
+        when "load" then 1
+        when "lit" then lit_key_size(operand, following)
+        else 0
+        end
+      end
+
+      # How many instructions a `lit` of `operand` followed by `following`
+      # takes as a key: 2 for a negative integer literal, 1 for a String or
+      # an Integer, 0 for any other literal.
+      def lit_key_size(operand, following)
+        return 0 unless operand.is_a?(String) || operand.is_a?(Integer)
+
+        operand.is_a?(Integer) && following == ["unary_minus"] ? 2 : 1
       end
 
       # The write of `value` at `path`, after the reference's two root checks.

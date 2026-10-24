@@ -71,4 +71,45 @@ class LocationTest < Minitest::Test
   def test_the_prior_value_reads_a_negative_index_from_the_end_as_the_reference_does
     assert_equal([20, U, U], [[-1], [2], ["a"]].map { D::Location.read({ "l" => [10, 20] }, ["l", *_1]) })
   end
+
+  KEYED = { "x" => { "a" => { "b" => [1, 2, 3] }, "k" => "kk" }, "l" => [10, 20], "m" => { "k" => 1 },
+            "k" => "k", "i" => 2, "a" => { "b" => "k" } }.freeze
+
+  # sabotage: answer true from Location.plain_keys?; the assert_equal fails, as
+  # x.a.b[1 + 1] is written at ["x", "a", "b", 2].
+  def test_a_computed_bracket_key_is_refused_as_the_reference_refuses_it
+    locations = ["x.a.b[1 + 1]", "x[x.k].b[0]", "l[len('ab') - 2]", "x[-k]", "x[1.5]", "x[true]", "x[null]", "x[a.b]"]
+    refusals = locations.map { D::Location.write(context(KEYED), _1, 7).error }
+
+    assert_equal(locations.map { D::ComputedKey.new(location: _1) }, refusals)
+    assert_equal "Cannot use computed expression as assignment target key", refusals.first.message
+  end
+
+  # sabotage: take a lit key only when it is an Integer (drop
+  # "operand.is_a?(String) ||") in Location.lit_key_size; the assert_equal
+  # fails.
+  def test_a_string_literal_key_is_taken
+    assert_equal([%w[m k], %w[m k]], ["m['k']", 'm["k"]'].map { D::Location.write(context(KEYED), _1, 7).path })
+  end
+
+  # sabotage: take a lit key only when it is a String (drop
+  # "|| operand.is_a?(Integer)") in Location.lit_key_size; the assert_equal
+  # fails.
+  def test_an_integer_literal_key_is_taken
+    assert_equal ["l", 0], D::Location.write(context(KEYED), "l[0]", 7).path
+  end
+
+  # sabotage: answer 1 for a negative literal ("? 1 : 1") in
+  # Location.lit_key_size; the assert_equal fails, as the key is refused.
+  def test_a_negative_integer_literal_key_is_taken
+    assert_equal([["x", -1], ["l", 0]], ["x[-(1)]", "l[-0]"].map { D::Location.write(context(KEYED), _1, 7).path })
+  end
+
+  # sabotage: answer 0 for a load (when "load" then 0) in Location.key_size;
+  # the assert_equal fails, as the key is refused.
+  def test_an_identifier_key_is_taken_with_its_value
+    paths = ["l[i]", "m[k]", "x[(k)]"].map { D::Location.write(context(KEYED), _1, 7).path }
+
+    assert_equal [["l", 2], %w[m k], %w[x k]], paths
+  end
 end
