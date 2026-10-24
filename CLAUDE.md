@@ -224,7 +224,8 @@ over the interpreter's invoke passes, `Interpreter::Invoke`), its session id
 its parent's, a dot and the invoke id, its effects among the call's effects
 as `Statifier::Effect::Child` values. The
 conformance runner drives every case through the driver;
-the registry holds the scion cases the runner passes, and the gate's registry
+the registry holds the scion and w3c cases the runner passes (the claims
+`scion`, `w3c-mandatory` and `w3c-optional`), and the gate's registry
 stage prints the gap list, every unclaimed case with the features it needs
 and whether it passes or why it fails. The tests also run the position
 round-trip property over every point of the scion suite
