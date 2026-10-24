@@ -299,10 +299,12 @@ claims to pass, and the gate fails if one of them does not.
 | Claim | Cases claimed | Of |
 |---|---|---|
 | `scion` | 119 | 119 cases in the scion suite |
+| `statifier` | 20 | 36 cases in the statifier suite |
 | `w3c-mandatory` | 152 | 154 mandatory cases in the w3c suite |
 | `w3c-optional` | 2 | 14 optional cases in the w3c suite |
 
-The registry holds 273 entries, which is the sum of the three rows.
+The registry holds 293 entries, which is the sum of the four rows. A claim is
+the set of its entries, not a statement that every case of its suite passes.
 
 What is not claimed yet:
 
@@ -310,9 +312,11 @@ What is not claimed yet:
   the reference's registry does not claim them either.
 - Twelve optional w3c cases whose host needs the Basic HTTP Event I/O
   Processor, which this package does not provide.
-- The 36 cases of the `statifier` suite, the reference's own. None is
-  claimed yet; the conformance runner does not drive the host objects of most
-  of them (registered send types, diffs and exported positions).
+- Sixteen cases of the `statifier` suite, the reference's own: the ten diff
+  cases and the accepts case, whose host keys the conformance runner does not
+  read yet; the four cases that state an exported position, which it does not
+  compare yet; and the one case that asks the host to report a send failed,
+  which it does not report yet.
 
 Running the gate prints the gap list: every unclaimed case with the features it
 needs and whether it passes or why it fails.

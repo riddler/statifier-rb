@@ -224,11 +224,11 @@ over the interpreter's invoke passes, `Interpreter::Invoke`), its session id
 its parent's, a dot and the invoke id, its effects among the call's effects
 as `Statifier::Effect::Child` values. The
 conformance runner drives every case through the driver;
-the registry holds the scion and w3c cases the runner passes (the claims
-`scion`, `w3c-mandatory` and `w3c-optional`), and the gate's registry
-stage prints the gap list, every unclaimed case with the features it needs
-and whether it passes or why it fails. The tests also run the position
-round-trip property over every point of the scion suite
+the registry holds the scion, w3c and statifier cases the runner passes
+(the claims `scion`, `statifier`, `w3c-mandatory` and `w3c-optional`), and
+the gate's registry stage prints the gap list, every unclaimed case with the
+features it needs and whether it passes or why it fails. The tests also run
+the position round-trip property over every point of the scion suite
 (`test/conformance/position_property.rb`).
 The 2019 stub is gone.
 
