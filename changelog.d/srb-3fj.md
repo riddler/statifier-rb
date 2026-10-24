@@ -1,6 +1,0 @@
-### Added
-
-* `Statifier::BasicHTTP::Processor`, loaded by `require "statifier/basichttp"`, is the Basic HTTP Event I/O Processor: built with `base_url:`, `report:` and an optional `transport:`, its `send_types` register it under `Statifier::BasicHTTP::EVENT_PROCESSOR` and `basichttp`, and a session's `_ioprocessors` then carries its location, the base URL, `/` and the session's id, under both.
-* Each send the processor is handed becomes one POST through the transport: a Hash of data as form fields beside `_scxmleventname`, no data as `_scxmleventname` alone, any other value as a `text/plain` body with the event name in the query string, every request carrying the send's `scxml-send-key` header.
-* A send with no target fails within the call as `error.communication`; a status outside 2xx, a transport error, a target that is not a String and a delayed send are handed to `report:` as a `Statifier::BasicHTTP::Failure`, for the host to pass to `Statifier.report_send_failed` once the call returns.
-* `Statifier::BasicHTTP.decode(method:, content_type:, body:, query:, send_key:)` turns a request a host's server took into the external event it carries, or a `Statifier::BasicHTTP::Refusal` (`:method_not_allowed`, `:not_utf8`, `:malformed_send_key`).

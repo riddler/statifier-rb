@@ -25,7 +25,7 @@ delivering a send stay the host's.
 Add `statifier` to your Gemfile:
 
 ```ruby
-gem "statifier", "~> 0.1"
+gem "statifier", "~> 0.1.0"
 ```
 
 And then execute:

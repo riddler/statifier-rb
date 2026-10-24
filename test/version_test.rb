@@ -7,9 +7,9 @@ require "test_helper"
 class VersionTest < Minitest::Test
   GEMSPEC = File.expand_path("../statifier.gemspec", __dir__)
 
-  # sabotage: change VERSION to "0.1.0"; the assertion on "0.1.0.pre" fails.
-  def test_version_is_the_pre_release_of_the_rewrite
-    assert_equal "0.1.0.pre", Statifier::VERSION
+  # sabotage: change VERSION to "0.1.0.pre"; the assertion on "0.1.0" fails.
+  def test_version_is_the_first_release_of_the_rewrite
+    assert_equal "0.1.0", Statifier::VERSION
   end
 
   # sabotage: make the gemspec read a fixed "0.0.0"; the assertion that the
