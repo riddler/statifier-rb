@@ -36,7 +36,7 @@ class RatchetTest < Minitest::Test
   # Registry.encode(registry) in Ratchet.write; the assert_equal on the
   # written bytes fails.
   def test_a_run_that_passes_nothing_writes_the_same_empty_registry
-    problems, bytes = ratchet(Conformance::Runner.run(CORPUS))
+    problems, bytes = ratchet(run_passing)
 
     assert_empty problems
     assert_equal File.binread(Conformance::Registry::PATH), bytes

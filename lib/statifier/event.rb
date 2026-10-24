@@ -13,7 +13,8 @@ module Statifier
   # carries none; and `caller_context`, the opaque value a host attached to
   # an external event, carried as the same object and never read.
   #
-  # @api private
+  # A host meets one in the effects the driver answers and as the event a
+  # processor is handed beside a send.
   Event = ::Data.define(:name, :type, :data, :cause, :invokeid, :origin, :origintype, :sendid, :caller_context)
 
   # The event's {Cause} and its constructors.

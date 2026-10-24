@@ -69,15 +69,6 @@ class RunnerTest < Minitest::Test
     assert_equal({ "result" => "fail", "reason" => "raised ArgumentError: boom" }, results["w3c/test144"])
   end
 
-  # sabotage: make Drive.call answer :pass; the assert_equal on the reason
-  # every case fails with fails (and the registry would then claim cases no
-  # driver drives).
-  def test_the_drive_passes_nothing_while_no_driver_exists
-    reasons = Conformance::Runner.run(CORPUS).values.map { |result| result["reason"] }.uniq
-
-    assert_equal [Conformance::Drive::NOT_DRIVEN], reasons
-  end
-
   # sabotage: have Runner.run answer {"result" => "fail"} for every case; the
   # assertion that each claimed case passes fails once the registry claims
   # one. With no entry it loops over nothing: the registry check

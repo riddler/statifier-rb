@@ -31,7 +31,7 @@ class TargetsTest < Minitest::Test
   # sabotage: answer true for :parent in Targets::Routes#reachable?; the
   # assert_equal on the answers fails.
   def test_declared_routes_reach_the_session_its_internal_queue_and_what_they_name
-    routes = T::Routes.new(sessions: ["s1"], parent: false, invokes: ["i1"])
+    routes = T::Routes.new(sessions: ["s1"], parent?: false, invokes: ["i1"])
     targets = [nil, "#_internal", "#_scxml_s1", "#_scxml_s2", "#_parent", "#_i1", "#_i2", "x"]
 
     assert_equal([true, true, true, false, false, true, false, false],

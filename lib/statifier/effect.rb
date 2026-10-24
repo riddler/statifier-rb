@@ -18,11 +18,10 @@ module Statifier
   # A value is a predicator value: `nil` is null and `Predicator::UNDEFINED`
   # is no value at all.
   #
-  # The vocabulary is internal until the driver fixes the public surface.
+  # These are the effects the driver's calls answer a host
+  # ({Driver::Moved}'s `effects`), and what a host's processor is handed.
   # Beside content's effects are the ones the interpreter's loop answers:
   # {DatamodelInit}, {BudgetExhausted}, {Done} and the {Trace} effects.
-  #
-  # @api private
   module Effect
     module_function
 
@@ -32,6 +31,8 @@ module Statifier
     # owner) is frozen in place. The one field that is not copied or frozen
     # is `caller_context`, the host's own opaque value, which the effect
     # carries as the same object, whatever it is.
+    #
+    # @api private
     def frozen_copy(value)
       return Ractor.make_shareable(value, copy: true) unless value.respond_to?(:caller_context)
 

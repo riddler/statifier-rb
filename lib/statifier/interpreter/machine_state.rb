@@ -119,7 +119,7 @@ module Statifier
       # (`session_id`, the id the host minted; `send_types`, the types it
       # registered a processor for, or nil for none; `ioprocessors`, the
       # `_ioprocessors` entry of each, by type). `routes` are the
-      # {Targets::Routes} the host declares, or nil; `trace` and
+      # {Targets::Routes} the driver declares, or nil; `trace` and
       # `max_macrostep_rounds` as the fields. The datamodel is copied before
       # it is frozen, so nothing the host passed is frozen in place.
       #

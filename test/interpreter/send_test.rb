@@ -14,7 +14,7 @@ class SendTest < Minitest::Test
 
   def sends(**fields) = S::SendState::INITIAL.with(**fields)
 
-  def routes(sessions: [], parent: false, invokes: []) = T::Routes.new(sessions:, parent:, invokes:)
+  def routes(sessions: [], parent: false, invokes: []) = T::Routes.new(sessions:, parent?: parent, invokes:)
 
   # sabotage: build Effect::Send with target: nil in Send.send_effect; the
   # assert_equal on the effect fails.

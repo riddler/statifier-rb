@@ -173,7 +173,7 @@ fails. Last is the compiler, `Statifier::Compiler` under
 node and `<data>` to an index in document order and compiles every
 expression through predicator into the machine, `Statifier::Machine` under
 `lib/statifier/machine/`, a deeply frozen value; both are internal. The
-package's one public method is `Statifier.compile`, which runs the four in
+package's first public method is `Statifier.compile`, which runs the four in
 order and answers a result (`ok?`, `value`, `error`): the machine, or the
 refusals of the first stage that refused.
 Beside them is the datamodel binding, `Statifier::Datamodel` under
@@ -205,9 +205,18 @@ starting a chart, by handling one external event and by delivering one
 internal event. Each answers the state it leaves, which carries the
 counters and the round budget a macrostep spends, and its effects; the
 events on its queues are one value, `Statifier::Event`.
-The 2019 stub is gone. The driver a host steps a chart with arrives with a
-later change; until it does, the sentences in this file about it describe
-the target, not the current tree, and the registry claims no case.
+Over the loop is the in-memory driver, `Statifier::Driver` under
+`lib/statifier/driver/`, the public surface a host steps a chart with:
+`Statifier.start`, `Statifier.step`, `Statifier.advance`,
+`Statifier.configuration` and `Statifier.done?`, each answering a result
+like the compile's. It keeps the external queue and the pending timers on a
+virtual clock in its state, an immutable value, routes every send the core
+answers (a send to `#_internal` through the loop's internal delivery), and
+hands a send of a registered type to the host's processor, passed per call.
+The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
+are public with it. The conformance runner drives every case through it;
+the registry claims no case yet.
+The 2019 stub is gone.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
   no statechart code; the stub stays installable from rubygems.org.
