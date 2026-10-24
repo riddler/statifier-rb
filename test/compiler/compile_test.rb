@@ -20,7 +20,7 @@ class CompileTest < Minitest::Test
     assert_kind_of Data, result
     assert_predicate result, :ok?
     assert_nil result.error
-    assert_instance_of Statifier::Machine, result.value
+    assert_instance_of Internals::Machine, result.value
     assert_equal %w[a b], result.value.states.drop(1).map(&:id)
   end
 
@@ -32,7 +32,7 @@ class CompileTest < Minitest::Test
 
     refute_predicate result, :ok?
     assert_nil result.value
-    assert_equal [Statifier::XML::ParseError], result.error.map(&:class)
+    assert_equal [Internals::XML::ParseError], result.error.map(&:class)
   end
 
   # sabotage: answer the first lowering error only (lowered.errors.first(1) in
@@ -41,7 +41,7 @@ class CompileTest < Minitest::Test
     result = Statifier.compile(doc("<state><bogus/></state><nope/>"))
 
     assert_equal %i[unsupported_element unsupported_element], result.error.map(&:reason)
-    assert_equal [Statifier::Lowering::Error], result.error.map(&:class).uniq
+    assert_equal [Internals::Lowering::Error], result.error.map(&:class).uniq
   end
 
   # sabotage: compile the lowered chart without the validator's gate
@@ -52,7 +52,7 @@ class CompileTest < Minitest::Test
 
     refute_predicate result, :ok?
     assert_nil result.value
-    assert_equal([[Statifier::Validator::Error, :bad_version]], result.error.map { [_1.class, _1.reason] })
+    assert_equal([[Internals::Validator::Error, :bad_version]], result.error.map { [_1.class, _1.reason] })
   end
 
   # sabotage: keep the warnings off the machine (warnings: [] in

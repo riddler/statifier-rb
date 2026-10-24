@@ -68,6 +68,6 @@ class TagRefusalsTest < Minitest::Test
   def test_refuses_an_element_left_open_naming_it
     assert_refused "<a><b>", :unclosed_element, 1, 7
 
-    assert_includes Statifier::XML.parse("<a><b>").error.message, "element <b> is never closed"
+    assert_includes Internals::XML.parse("<a><b>").error.message, "element <b> is never closed"
   end
 end

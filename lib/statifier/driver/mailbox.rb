@@ -41,7 +41,7 @@ module Statifier
       # A send to `#_parent`: the event, stamped with the invoke id, into
       # the parent's mailbox.
       def to_parent(work, event, counted:)
-        event = Effect.frozen_copy(event.with(invokeid: work.state.invoked_as))
+        event = Frozen.copy(event.with(invokeid: work.state.invoked_as))
         work.post(Mail.new(kind: :event, invoke_id: work.state.invoked_as, payload: event), counted:)
       end
 
@@ -107,13 +107,13 @@ module Statifier
       #
       # @return [Event]
       def done_event(session_id, invocation, donedata)
-        Effect.frozen_copy(Event.external(
-                             "done.invoke.#{invocation.invoke_id}",
-                             data: donedata, invokeid: invocation.invoke_id,
-                             origin: Datamodel::SystemVariables.scxml_location(session_id),
-                             origintype: Datamodel::SystemVariables::SCXML_EVENT_PROCESSOR,
-                             caller_context: invocation.caller_context
-                           ))
+        Frozen.copy(Event.external(
+                      "done.invoke.#{invocation.invoke_id}",
+                      data: donedata, invokeid: invocation.invoke_id,
+                      origin: Datamodel::SystemVariables.scxml_location(session_id),
+                      origintype: Datamodel::SystemVariables::SCXML_EVENT_PROCESSOR,
+                      caller_context: invocation.caller_context
+                    ))
       end
     end
   end

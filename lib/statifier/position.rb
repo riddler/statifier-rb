@@ -53,8 +53,8 @@ module Statifier
   # position's `_sessionid` holds, and the registered send types are the
   # processors the host passes the import.
   #
-  # A host reads {KEYS} and {Refusal} here; the functions are the bodies of
-  # the two calls, and they and the modules beneath are internal.
+  # A host reads {KEYS} and {Refusal} here; the bodies of the two calls
+  # ({Codec}) and the modules beneath them are private constants.
   module Position
     # The keys a position carries, in the reference's order, every one
     # required by an import.
@@ -82,118 +82,125 @@ module Statifier
     #     each with `field`); empty for `:internal_queue_not_empty`
     Refusal = ::Data.define(:reason, :detail)
 
-    module_function
+    # The bodies of the two calls. Internal, with the modules beneath.
+    module Codec
+      module_function
 
-    # {Statifier.export_position}'s body.
-    #
-    # @return [Result]
-    def export(state)
-      machine_state = state.machine_state
-      return refused(:internal_queue_not_empty) unless machine_state.internal_queue.empty?
+      # {Statifier.export_position}'s body.
+      #
+      # @return [Result]
+      def export(state)
+        machine_state = state.machine_state
+        return refused(:internal_queue_not_empty) unless machine_state.internal_queue.empty?
 
-      unnameable = unnameable(machine_state)
-      return refused(:unnameable_states, indexes: unnameable) unless unnameable.empty?
+        unnameable = unnameable(machine_state)
+        return refused(:unnameable_states, indexes: unnameable) unless unnameable.empty?
 
-      datamodel, failure = Text.encode(machine_state.datamodel)
-      return refused(:unencodable_value, **failure) if datamodel.nil?
+        datamodel, failure = Text.encode(machine_state.datamodel)
+        return refused(:unencodable_value, **failure) if datamodel.nil?
 
-      ok(exported(machine_state, datamodel))
-    end
-
-    # The indexes, sorted, other than the root's, that the state holds and
-    # that no id names: a state the document gave no id.
-    def unnameable(machine_state)
-      machine = machine_state.machine
-      referenced(machine_state).reject { _1.zero? || nameable?(machine, _1) }.sort
-    end
-
-    # Every state index a position's fields hold, once each.
-    def referenced(machine_state)
-      history = machine_state.history.flat_map { |key, recorded| [key, *recorded] }
-      invoking = machine_state.active_invocations.keys.map(&:first)
-      (machine_state.configuration + machine_state.entered_states + machine_state.states_to_invoke + history +
-        invoking).uniq
-    end
-
-    # Whether the document's id for the state at `index` names it.
-    def nameable?(machine, index)
-      id = machine.state(index).id
-      !id.nil? && machine.id_to_index[id] == index
-    end
-
-    # The position, deeply frozen.
-    def exported(machine_state, datamodel)
-      machine = machine_state.machine
-      Ractor.make_shareable(
-        { "configuration" => ids(machine, machine_state.configuration),
-          "entered_states" => ids(machine, machine_state.entered_states),
-          "states_to_invoke" => ids(machine, machine_state.states_to_invoke),
-          "history_values" => history(machine, machine_state.history),
-          "active_invocations" => invocations(machine, machine_state.active_invocations),
-          **counters(machine_state), "datamodel" => datamodel, **flags(machine_state) }
-      )
-    end
-
-    # The recorded history by id, sorted by the history state's id.
-    def history(machine, recorded) = recorded.map { |key, values| [name(machine, key), ids(machine, values)] }.sort.to_h
-
-    # The id of the state at `index`.
-    def name(machine, index) = machine.state(index).id
-
-    # The ids of the states at `indexes`, the root left out, sorted.
-    def ids(machine, indexes) = (indexes.uniq - [0]).map { name(machine, _1) }.sort
-
-    # The live invocations, sorted by their state's id and their index.
-    def invocations(machine, active)
-      entries = active.map do |(state_index, invoke_index), invoke_id|
-        { "state" => name(machine, state_index), "invoke_index" => invoke_index, "invoke_id" => invoke_id }
+        ok(exported(machine_state, datamodel))
       end
-      entries.sort_by { [_1["state"], _1["invoke_index"]] }
+
+      # The indexes, sorted, other than the root's, that the state holds and
+      # that no id names: a state the document gave no id.
+      def unnameable(machine_state)
+        machine = machine_state.machine
+        referenced(machine_state).reject { _1.zero? || nameable?(machine, _1) }.sort
+      end
+
+      # Every state index a position's fields hold, once each.
+      def referenced(machine_state)
+        history = machine_state.history.flat_map { |key, recorded| [key, *recorded] }
+        invoking = machine_state.active_invocations.keys.map(&:first)
+        (machine_state.configuration + machine_state.entered_states + machine_state.states_to_invoke + history +
+          invoking).uniq
+      end
+
+      # Whether the document's id for the state at `index` names it.
+      def nameable?(machine, index)
+        id = machine.state(index).id
+        !id.nil? && machine.id_to_index[id] == index
+      end
+
+      # The position, deeply frozen.
+      def exported(machine_state, datamodel)
+        machine = machine_state.machine
+        Ractor.make_shareable(
+          { "configuration" => ids(machine, machine_state.configuration),
+            "entered_states" => ids(machine, machine_state.entered_states),
+            "states_to_invoke" => ids(machine, machine_state.states_to_invoke),
+            "history_values" => history(machine, machine_state.history),
+            "active_invocations" => invocations(machine, machine_state.active_invocations),
+            **counters(machine_state), "datamodel" => datamodel, **flags(machine_state) }
+        )
+      end
+
+      # The recorded history by id, sorted by the history state's id.
+      def history(machine, recorded)
+        recorded.map { |key, values| [name(machine, key), ids(machine, values)] }.sort.to_h
+      end
+
+      # The id of the state at `index`.
+      def name(machine, index) = machine.state(index).id
+
+      # The ids of the states at `indexes`, the root left out, sorted.
+      def ids(machine, indexes) = (indexes.uniq - [0]).map { name(machine, _1) }.sort
+
+      # The live invocations, sorted by their state's id and their index.
+      def invocations(machine, active)
+        entries = active.map do |(state_index, invoke_index), invoke_id|
+          { "state" => name(machine, state_index), "invoke_index" => invoke_index, "invoke_id" => invoke_id }
+        end
+        entries.sort_by { [_1["state"], _1["invoke_index"]] }
+      end
+
+      # The three sequences, as the position carries them.
+      def counters(machine_state)
+        { "invoke_counter" => machine_state.invoke_counter, "send_counter" => machine_state.sends.send_counter,
+          "timer_counter" => machine_state.sends.timer_counter }
+      end
+
+      # The fields after the datamodel, as the position carries them.
+      def flags(machine_state)
+        budget = machine_state.max_macrostep_rounds
+        { "running" => machine_state.running, "status" => machine_state.status.to_s,
+          **machine_state.counters.transform_keys(&:to_s), "trace" => machine_state.trace,
+          "max_macrostep_rounds" => budget == :infinity ? "infinity" : budget }
+      end
+
+      # {Statifier.import_position}'s body: the position checked, its
+      # datamodel decoded, every id it names resolved against `machine`, and
+      # the state rebuilt.
+      #
+      # @return [Result]
+      def import(machine, position, processors)
+        types = DRIVER_CHECKS.registered_types(processors)
+        failure = Shape.failure(position)
+        return refused(:malformed_export, **failure) if failure
+
+        datamodel, failure = Text.decode(position["datamodel"])
+        return refused(:malformed_export, **failure) if datamodel.nil?
+
+        unknown = Shape.unknown_ids(machine, position)
+        return refused(:unknown_state_ids, ids: unknown) unless unknown.empty?
+
+        ok(Rebuild.state(machine, position, datamodel, types))
+      end
+
+      # A successful result.
+      def ok(value) = Result.new(value:, error: nil)
+
+      # A refused result, its detail frozen.
+      def refused(reason, **detail)
+        Result.new(value: nil, error: Refusal.new(reason:, detail: Ractor.make_shareable(detail)))
+      end
     end
 
-    # The three sequences, as the position carries them.
-    def counters(machine_state)
-      { "invoke_counter" => machine_state.invoke_counter, "send_counter" => machine_state.sends.send_counter,
-        "timer_counter" => machine_state.sends.timer_counter }
-    end
+    require_relative "position/text"
+    require_relative "position/shape"
+    require_relative "position/rebuild"
 
-    # The fields after the datamodel, as the position carries them.
-    def flags(machine_state)
-      budget = machine_state.max_macrostep_rounds
-      { "running" => machine_state.running, "status" => machine_state.status.to_s,
-        **machine_state.counters.transform_keys(&:to_s), "trace" => machine_state.trace,
-        "max_macrostep_rounds" => budget == :infinity ? "infinity" : budget }
-    end
-
-    # {Statifier.import_position}'s body: the position checked, its
-    # datamodel decoded, every id it names resolved against `machine`, and
-    # the state rebuilt.
-    #
-    # @return [Result]
-    def import(machine, position, processors)
-      types = Driver::Checks.registered_types(processors)
-      failure = Shape.failure(position)
-      return refused(:malformed_export, **failure) if failure
-
-      datamodel, failure = Text.decode(position["datamodel"])
-      return refused(:malformed_export, **failure) if datamodel.nil?
-
-      unknown = Shape.unknown_ids(machine, position)
-      return refused(:unknown_state_ids, ids: unknown) unless unknown.empty?
-
-      ok(Rebuild.state(machine, position, datamodel, types))
-    end
-
-    # A successful result.
-    def ok(value) = Result.new(value:, error: nil)
-
-    # A refused result, its detail frozen.
-    def refused(reason, **detail)
-      Result.new(value: nil, error: Refusal.new(reason:, detail: Ractor.make_shareable(detail)))
-    end
+    private_constant :Codec, :Rebuild, :SESSION_ID, :Shape, :Text
   end
 end
-
-require_relative "position/text"
-require_relative "position/shape"
-require_relative "position/rebuild"

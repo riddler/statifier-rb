@@ -99,7 +99,7 @@ module Statifier
       #
       # @return [Work]
       def enqueue(work, event, counted:)
-        event = Effect.frozen_copy(event)
+        event = Frozen.copy(event)
         work = work.with_state(external_queue: (work.state.external_queue + [event]).freeze)
         counted ? work.with(counted: (work.counted + [event]).freeze) : work
       end

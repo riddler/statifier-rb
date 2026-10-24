@@ -25,7 +25,7 @@ class CorpusSourcesTest < Minitest::Test
   def test_reads_every_scxml_document_in_the_vendored_corpus
     all = sources
     refused = all.filter_map do |name, source|
-      result = Statifier::XML.parse(source)
+      result = Internals::XML.parse(source)
       "#{name}: #{result.error.message}" unless result.ok?
     end
 

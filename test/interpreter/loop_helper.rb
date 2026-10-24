@@ -6,7 +6,7 @@ require_relative "interpreter_helper"
 module LoopHelper
   include InterpreterHelper
 
-  L = Statifier::Interpreter::Loop
+  L = Internals::Interpreter::Loop
   E = Statifier::Effect
   T = Statifier::Effect::Trace
   EV = Statifier::Event

@@ -56,6 +56,9 @@ module Statifier
         { "name" => name, "type" => type.to_s, **fields, "data" => data }.freeze
       end
 
+      # `_event`'s value for `event`, a {Statifier::Event} ({event}).
+      def of_event(event) = event(**event.to_h.slice(:name, :type, :data, *OPTIONAL_FIELDS))
+
       # The datamodel with `_event` set to `event_value` ({event}).
       def put_event(data, event_value) = data.merge("_event" => event_value).freeze
 

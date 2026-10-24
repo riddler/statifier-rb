@@ -2,6 +2,7 @@
 
 require_relative "machine"
 require_relative "datamodel"
+require_relative "frozen"
 require_relative "effect"
 require_relative "event"
 

@@ -11,11 +11,11 @@ module ValidatorHelper
 
   # The validator's result for source, which must read and lower.
   def validate(source, **)
-    parsed = Statifier::XML.parse(source)
+    parsed = Internals::XML.parse(source)
     flunk "expected a parse, got #{parsed.error.message}" unless parsed.ok?
-    lowered = Statifier::Lowering.lower(parsed.value, source)
+    lowered = Internals::Lowering.lower(parsed.value, source)
     flunk "expected a chart, got #{lowered.errors.map(&:message)}" unless lowered.ok?
-    Statifier::Validator.validate(lowered.value, source, **)
+    Internals::Validator.validate(lowered.value, source, **)
   end
 
   # Each error of source as [reason, detail, line, column].

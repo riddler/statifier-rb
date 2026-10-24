@@ -6,7 +6,7 @@ require "test_helper"
 # error event carries.
 class EventTest < Minitest::Test
   EV = Statifier::Event
-  DM = Statifier::Datamodel
+  DM = Internals::Datamodel
 
   # sabotage: pass `type: :external` in Event.internal; the assert_equal on
   # the types fails.
@@ -21,10 +21,10 @@ class EventTest < Minitest::Test
     assert_same Predicator::UNDEFINED, events.first.data
   end
 
-  # sabotage: drop `invokeid:` from Event#system_value; the assert_equal
-  # fails, as SystemVariables.event reads it as absent.
+  # sabotage: slice only :name, :type and :data in SystemVariables.of_event;
+  # the assert_equal fails, as SystemVariables.event reads the rest as absent.
   def test_the_system_value_carries_every_field_of_underscore_event
-    value = EV.external("e", data: [1], invokeid: "i", sendid: "s").system_value
+    value = DM::SystemVariables.of_event(EV.external("e", data: [1], invokeid: "i", sendid: "s"))
 
     assert_equal({ "name" => "e", "type" => "external", "sendid" => "s", "origin" => Predicator::UNDEFINED,
                    "origintype" => Predicator::UNDEFINED, "invokeid" => "i", "data" => [1] }, value)
@@ -34,7 +34,7 @@ class EventTest < Minitest::Test
   # assert_equal fails.
   def test_a_failure_becomes_a_predicator_value_with_its_kind_in_snake_case
     inner = DM::UnboundLocation.new(location: :zz)
-    reason = Statifier::Interpreter::Content::NestedContent.new(c_index: 2, reason: inner)
+    reason = Internals::Interpreter::Content::NestedContent.new(c_index: 2, reason: inner)
 
     assert_equal({ "kind" => "nested_content", "c_index" => 2,
                    "reason" => { "kind" => "unbound_location", "location" => "zz" } }, DM::ReasonValue.of(reason))
@@ -45,7 +45,7 @@ class EventTest < Minitest::Test
   def test_a_predicator_value_inside_a_failure_stays_as_it_is
     duration = Predicator.parse_duration("1s").value
 
-    assert_same duration, DM::ReasonValue.of(Statifier::Interpreter::Foreach::NotIterable.new(value: duration))["value"]
+    assert_same duration, DM::ReasonValue.of(Internals::Interpreter::Foreach::NotIterable.new(value: duration))["value"]
     assert_same duration, DM::ReasonValue.of(DM::InvalidDelay.new(value: duration))["value"]
   end
 end

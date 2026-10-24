@@ -8,7 +8,7 @@ require_relative "content_helper"
 class ForeachTest < Minitest::Test
   include ContentHelper
 
-  F = Statifier::Interpreter::Foreach
+  F = Internals::Interpreter::Foreach
 
   # sabotage: bind position + 1 in place of position in
   # Foreach.bind_iteration; the assert_equal on the logs fails.

@@ -8,7 +8,7 @@ require_relative "interpreter_helper"
 class EnteringTest < Minitest::Test
   include InterpreterHelper
 
-  E = Statifier::Interpreter::Entering
+  E = Internals::Interpreter::Entering
 
   PLAIN = <<~XML
     <state id="a"><transition event="e" target="c"/><transition event="f" target="b"/><transition event="g" target="p"/>
@@ -139,7 +139,7 @@ class EnteringTest < Minitest::Test
   def test_the_entry_set_is_frozen_and_ascending
     chart = machine(PLAIN)
     entry_set = E.add_ancestor_states_to_enter(snapshot(chart), at(chart, "y1"), nil,
-                                               Statifier::Interpreter::EntrySet::EMPTY.add(at(chart, "y1")))
+                                               Internals::Interpreter::EntrySet::EMPTY.add(at(chart, "y1")))
 
     assert_equal %w[scxml p r1 x1 r2 y1], ids(chart, entry_set.states_to_enter)
     assert_predicate entry_set.states_to_enter, :frozen?

@@ -60,7 +60,7 @@ class StoresTest < Minitest::Test
   # assert_equal on the reason fails, as the call names an unknown function.
   def test_a_store_whose_root_cannot_be_read_fails_the_run_and_writes_nothing
     instructions = [%w[lit r], %w[load r], ["lit", 1], ["store", 1]]
-    unread = Statifier::Machine::Program.new(instructions:, source: "s")
+    unread = Internals::Machine::Program.new(instructions:, source: "s")
     executed = D.execute(context({ "r" => "x" }), unread)
 
     assert_includes executed.error.error.reason, "statifier:unread() raised"

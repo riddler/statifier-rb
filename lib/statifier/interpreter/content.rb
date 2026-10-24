@@ -72,11 +72,11 @@ module Statifier
       # What a block threads from node to node.
       Run = ::Data.define(:context, :sends, :effects, :raised, :pending) do
         # The run with `effect` appended, as a deeply frozen copy
-        # ({Effect.frozen_copy}).
-        def effect(effect) = with(effects: (effects + [Effect.frozen_copy(effect)]).freeze)
+        # ({Frozen.copy}).
+        def effect(effect) = with(effects: (effects + [Frozen.copy(effect)]).freeze)
 
         # The run with `events` raised, each a deeply frozen copy.
-        def raise_events(*events) = with(raised: (raised + events.map { Effect.frozen_copy(_1) }).freeze)
+        def raise_events(*events) = with(raised: (raised + events.map { Frozen.copy(_1) }).freeze)
 
         # The run with a condition's failure recorded.
         def defer(reason) = with(pending: (pending + [reason]).freeze)

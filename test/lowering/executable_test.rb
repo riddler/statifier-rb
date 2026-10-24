@@ -7,7 +7,7 @@ require_relative "lowering_helper"
 class LoweringExecutableTest < Minitest::Test
   include LoweringHelper
 
-  D = Statifier::Document
+  D = Internals::Document
 
   # sabotage: split a raise's event (Reading.list for "event" in
   # Executable.raise_node); the assert_equal on the event fails.

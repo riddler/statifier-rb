@@ -98,7 +98,7 @@ module Statifier
       # A form body's pairs and no text, or no pairs and the body as text;
       # nil pairs when it does not decode to UTF-8.
       def body(content_type, body)
-        return [Encoding.pairs(body), nil] if content_type&.downcase&.start_with?(Processor::FORM)
+        return [Encoding.pairs(body), nil] if content_type&.downcase&.start_with?(Outbound::FORM)
 
         text = Encoding.utf8(body.b)
         text.valid_encoding? ? [[], text] : [nil, nil]
@@ -113,10 +113,10 @@ module Statifier
 
       # The event the pairs and the text carry.
       def event(method, pairs, text)
-        named, params = pairs.partition { _1.first == Processor::EVENT_NAME_PARAM }
+        named, params = pairs.partition { _1.first == Outbound::EVENT_NAME_PARAM }
         name = named.empty? ? "HTTP.#{method.upcase}" : named.first.last
         data = text ? Interpreter::Send.text_data(text) : params_data(params)
-        Effect.frozen_copy(Event.external(name, data:, origintype: EVENT_PROCESSOR))
+        Frozen.copy(Event.external(name, data:, origintype: EVENT_PROCESSOR))
       end
 
       # Each parameter's value read as text, the last of a name winning.

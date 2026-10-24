@@ -65,7 +65,7 @@ module Statifier
       def handle_event(state, event, clock: nil)
         return Handled.new(state:, effects: [], error: :not_running) unless state.running
 
-        event = Effect.frozen_copy(event)
+        event = Frozen.copy(event)
         state = state.begin_macrostep.with(caller_context: event.caller_context, clock:)
         dequeued = Blocks.traced(state, Effect::Trace::EventDequeued, event:, from: :external)
         taken = take(state.put_event(event), event)
@@ -125,7 +125,7 @@ module Statifier
       def initialize_datamodel(state)
         context = state.context
         init = Effect::DatamodelInit.new(datamodel: Datamodel::DataBinding.seed(context), **state.counters)
-        Stepped.new(state:, effects: [Effect.frozen_copy(init)])
+        Stepped.new(state:, effects: [Frozen.copy(init)])
                .then_step(Blocks.bound(state, Datamodel::DataBinding.start(context)))
       end
 

@@ -7,7 +7,7 @@ require_relative "interpreter_helper"
 class ConflictTest < Minitest::Test
   include InterpreterHelper
 
-  S = Statifier::Interpreter::Selection
+  S = Internals::Interpreter::Selection
 
   # sabotage: answer filtered (never append) in
   # Selection.remove_conflicting_transitions; the assert_equal on both fails.

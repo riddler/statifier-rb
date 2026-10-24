@@ -175,10 +175,10 @@ module Statifier
 
       # The {Effect::BudgetExhausted} of a macrostep that spent its budget.
       def exhausted(state)
-        [Effect.frozen_copy(Effect::BudgetExhausted.new(configuration: state.configuration,
-                                                        budget: state.max_macrostep_rounds,
-                                                        pending_internal_events: state.internal_queue,
-                                                        **state.counters))]
+        [Frozen.copy(Effect::BudgetExhausted.new(configuration: state.configuration,
+                                                 budget: state.max_macrostep_rounds,
+                                                 pending_internal_events: state.internal_queue,
+                                                 **state.counters))]
       end
     end
   end

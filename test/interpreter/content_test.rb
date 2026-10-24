@@ -131,7 +131,7 @@ class ContentTest < Minitest::Test
   def test_an_empty_block_answers_what_it_was_given
     chart = content_machine("")
     data = bound(chart)
-    sends = Statifier::Interpreter::Send::SendState::INITIAL.with(send_counter: 4, timer_counter: 2)
+    sends = Internals::Interpreter::Send::SendState::INITIAL.with(send_counter: 4, timer_counter: 2)
     outcome = C.execute_block(DM.context(data, chart, [0, 1]), [], stamp, sends)
 
     assert_equal [[], [], [], data, sends],

@@ -134,8 +134,8 @@ module Statifier
 
         # The {Effect::CancelInvoke}.
         def cancel_effect(state, invoke_id, index)
-          Effect.frozen_copy(Effect::CancelInvoke.new(invoke_id:, state_index: index, **state.counters,
-                                                      caller_context: state.caller_context))
+          Frozen.copy(Effect::CancelInvoke.new(invoke_id:, state_index: index, **state.counters,
+                                               caller_context: state.caller_context))
         end
       end
     end

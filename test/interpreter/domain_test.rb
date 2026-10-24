@@ -8,7 +8,7 @@ require_relative "interpreter_helper"
 class DomainTest < Minitest::Test
   include InterpreterHelper
 
-  S = Statifier::Interpreter::Selection
+  S = Internals::Interpreter::Selection
 
   NESTED = <<~XML
     <state id="s" initial="s1">

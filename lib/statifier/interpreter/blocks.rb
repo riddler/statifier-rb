@@ -80,11 +80,11 @@ module Statifier
 
       # The effect one binding answers.
       def binding_change(state, change)
-        Effect.frozen_copy(Effect::DatamodelChange.new(
-                             location_path: [change.id], location_source: change.id, new_value: change.new_value,
-                             prior_value: change.prior_value, d_index: change.d_index, c_index: nil, owner: nil,
-                             **state.counters
-                           ))
+        Frozen.copy(Effect::DatamodelChange.new(
+                      location_path: [change.id], location_source: change.id, new_value: change.new_value,
+                      prior_value: change.prior_value, d_index: change.d_index, c_index: nil, owner: nil,
+                      **state.counters
+                    ))
       end
 
       # `returnDoneEvent`'s data: the final state's `<donedata>` folded to

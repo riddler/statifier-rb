@@ -22,7 +22,7 @@ class DataBindingTest < Minitest::Test
   # failure's source, any other reason itself.
   def reason_row(reason)
     case reason
-    when Statifier::Compiler::Error then reason.reason
+    when Internals::Compiler::Error then reason.reason
     when D::EvaluatorError then reason.source
     else reason
     end

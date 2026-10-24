@@ -188,14 +188,17 @@ module Statifier
 
     # The round budget when the host sets none.
     MAX_MACROSTEP_ROUNDS = Interpreter::MachineState::MAX_MACROSTEP_ROUNDS
+
+    require_relative "driver/session_id"
+    require_relative "driver/work"
+    require_relative "driver/routing"
+    require_relative "driver/delivery"
+    require_relative "driver/checks"
+    require_relative "driver/invocations"
+    require_relative "driver/mailbox"
+    require_relative "driver/calls"
+
+    private_constant :Calls, :Checks, :Delivery, :Invocation, :Invocations, :Mail, :Mailbox, :MAX_MACROSTEP_ROUNDS,
+                     :Routing, :Run, :SessionId, :State, :Timer, :Work
   end
 end
-
-require_relative "driver/session_id"
-require_relative "driver/work"
-require_relative "driver/routing"
-require_relative "driver/delivery"
-require_relative "driver/checks"
-require_relative "driver/invocations"
-require_relative "driver/mailbox"
-require_relative "driver/calls"

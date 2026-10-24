@@ -68,7 +68,7 @@ module Statifier
       # The state with a platform event named `name` queued, its cause
       # `origin` and the counters as they stand.
       def raise_platform(name, origin, data: Predicator::UNDEFINED, sendid: nil)
-        enqueue(Effect.frozen_copy(Event.platform(name, cause(origin), data:, sendid:)))
+        enqueue(Frozen.copy(Event.platform(name, cause(origin), data:, sendid:)))
       end
 
       # The state with an `error.execution` queued about `origin`, its data
@@ -80,7 +80,7 @@ module Statifier
 
       # The state with an internal event queued, as {raise_platform}.
       def raise_internal(name, origin, data: Predicator::UNDEFINED, sendid: nil)
-        enqueue(Effect.frozen_copy(Event.internal(name, cause(origin), data:, sendid:)))
+        enqueue(Frozen.copy(Event.internal(name, cause(origin), data:, sendid:)))
       end
 
       # The oldest queued event and the state without it, or nil when the
@@ -93,7 +93,8 @@ module Statifier
 
       # The state with `_event` set to `event`'s value.
       def put_event(event)
-        with(datamodel: Ractor.make_shareable(Datamodel::SystemVariables.put_event(datamodel, event.system_value)))
+        variables = Datamodel::SystemVariables
+        with(datamodel: Ractor.make_shareable(variables.put_event(datamodel, variables.of_event(event))))
       end
 
       # Whether the state at `index` is active.

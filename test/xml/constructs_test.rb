@@ -64,7 +64,7 @@ class ConstructsTest < Minitest::Test
   def test_keeps_whitespace_only_text_runs
     element = root("<a>\n  <b/>\n</a>")
 
-    assert_equal [Statifier::XML::Text, Statifier::XML::Element, Statifier::XML::Text], element.children.map(&:class)
+    assert_equal [Internals::XML::Text, Internals::XML::Element, Internals::XML::Text], element.children.map(&:class)
     assert_equal "\n  ", element.children.first.value
   end
 

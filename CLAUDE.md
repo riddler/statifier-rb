@@ -220,9 +220,11 @@ A send the processor cannot deliver comes back to the chart as
 `Statifier.report_send_failed`.
 The effects and events it answers (`Statifier::Effect`, `Statifier::Event`)
 are public with it. Beside it, `Statifier.export_position` and
-`Statifier.import_position` (the bodies in `Statifier::Position`,
-`lib/statifier/position.rb` and `lib/statifier/position/`) write a state out as a position, plain data in
-the reference's string-id vocabulary, and read one back in. The driver runs
+`Statifier.import_position` (the bodies in `Statifier::Position`'s private
+`Codec`, `lib/statifier/position.rb` and `lib/statifier/position/`) write a
+state out as a position, plain data in the reference's string-id
+vocabulary, and read one back in; `Statifier::Position` itself holds the
+position's `KEYS` and its `Refusal`, public. The driver runs
 an `<invoke>` of the SCXML type as an in-process child session
 (`lib/statifier/driver/invocations.rb` and `lib/statifier/driver/mailbox.rb`
 over the interpreter's invoke passes, `Interpreter::Invoke`), its session id
@@ -244,6 +246,17 @@ Beside it under the same require is the Basic HTTP Event I/O Processor,
 one POST through the transport and hands a miss to the host's `report:`
 for `Statifier.report_send_failed`, and `Statifier::BasicHTTP.decode`,
 which turns a request a host's server took into the event it carries.
+The public surface is the ten calls on `Statifier`, the values a host
+names (`Result`, `AcceptsCheck`, `Event`, the `Effect` values, the
+driver's `Moved`, `DoneStatus`, `Context` and `DeliveryFailure`, the
+position's `KEYS` and `Refusal`) and `VERSION`, and, under
+`statifier/basichttp`, the processor and its values; every other constant
+is private (`private_constant`), the internal modules above among them, and
+`test/surface_test.rb` lists the surface whole and fails on an addition or
+a removal. A value a call answers whose class is private (the machine, a
+driver state, a compile refusal) is read by its documented members. The
+unit tests reach the internals by name with `const_get`, most through
+`test/test_helper.rb`.
 The conformance runner drives every case through the driver;
 the registry holds the scion, w3c and statifier cases the runner passes
 (the claims `scion`, `statifier`, `w3c-mandatory` and `w3c-optional`), and

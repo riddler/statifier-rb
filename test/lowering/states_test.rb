@@ -53,8 +53,8 @@ class LoweringStatesTest < Minitest::Test
 
     assert_equal [%w[i1 i2], [["x"]]], [each_of(state.invoke, :id), each_of(state.initial_element.transitions, :target)]
     assert_equal [[]], each_of(state.onexit, :content)
-    assert_kind_of Statifier::Document::Donedata, state.donedata
-    assert_kind_of Statifier::Document::Datamodel, state.datamodel_element
+    assert_kind_of Internals::Document::Donedata, state.donedata
+    assert_kind_of Internals::Document::Datamodel, state.datamodel_element
   end
 
   # sabotage: keep the first `<initial>` (`||=` for a :one field in
@@ -92,7 +92,7 @@ class LoweringStatesTest < Minitest::Test
     content = state_of(%(<state><transition><raise event="a"/><log expr="1"/></transition></state>))
               .transitions.first.content
 
-    assert_equal [Statifier::Document::Raise, Statifier::Document::Log], content.map(&:class)
+    assert_equal [Internals::Document::Raise, Internals::Document::Log], content.map(&:class)
   end
 
   # sabotage: start a state's span at its first attribute (location:

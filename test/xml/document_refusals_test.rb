@@ -42,6 +42,6 @@ class DocumentRefusalsTest < Minitest::Test
   # sabotage: let XML.parse read any object with to_s (drop the is_a? check);
   # the assert_raises fails.
   def test_raises_a_type_error_for_something_that_is_not_a_string
-    assert_raises(TypeError) { Statifier::XML.parse(nil) }
+    assert_raises(TypeError) { Internals::XML.parse(nil) }
   end
 end

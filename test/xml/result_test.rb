@@ -11,13 +11,13 @@ class ResultTest < Minitest::Test
   # sabotage: answer error: :none for a read document in XML.parse; the
   # assert_predicate on ok? fails.
   def test_answers_a_result_holding_the_root_or_the_error
-    read = Statifier::XML.parse("<a/>")
-    refused = Statifier::XML.parse("<a>")
+    read = Internals::XML.parse("<a/>")
+    refused = Internals::XML.parse("<a>")
 
     assert_predicate read, :ok?
     assert_equal ["a", nil], [read.value.name, read.error]
     refute_predicate refused, :ok?
-    assert_kind_of Statifier::XML::ParseError, refused.error
+    assert_kind_of Internals::XML::ParseError, refused.error
   end
 
   # sabotage: leave the children array unfrozen in OpenElement#finish

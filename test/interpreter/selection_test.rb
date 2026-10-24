@@ -8,7 +8,7 @@ require_relative "interpreter_helper"
 class SelectionTest < Minitest::Test
   include InterpreterHelper
 
-  S = Statifier::Interpreter::Selection
+  S = Internals::Interpreter::Selection
 
   NESTED = <<~XML
     <state id="p" initial="c">
@@ -75,8 +75,8 @@ class SelectionTest < Minitest::Test
     evaluations = S.select_transitions(snapshot(chart, "a"), "e", data(chart)).evaluations
     reasons = evaluations.select { _1.outcome == :error }.map(&:reason)
 
-    assert_instance_of Statifier::Datamodel::EvaluatorError, reasons.first
-    assert_equal Statifier::Datamodel::NonBooleanCond.new(value: 1), reasons.last
+    assert_instance_of Internals::Datamodel::EvaluatorError, reasons.first
+    assert_equal Internals::Datamodel::NonBooleanCond.new(value: 1), reasons.last
   end
 
   # sabotage: build the context over an empty configuration in

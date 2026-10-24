@@ -33,12 +33,15 @@ module Statifier
     # could not make; the error that caused it, when there was one, is its
     # `cause`.
     class TransportError < StandardError; end
+
+    require_relative "basichttp/request"
+    require_relative "basichttp/response"
+    require_relative "basichttp/net_http_transport"
+    require_relative "basichttp/encoding"
+    require_relative "basichttp/outbound"
+    require_relative "basichttp/processor"
+    require_relative "basichttp/decode"
+
+    private_constant :Decode, :Encoding, :Outbound, :Values
   end
 end
-
-require_relative "basichttp/request"
-require_relative "basichttp/response"
-require_relative "basichttp/net_http_transport"
-require_relative "basichttp/encoding"
-require_relative "basichttp/processor"
-require_relative "basichttp/decode"

@@ -8,7 +8,7 @@ require_relative "interpreter_helper"
 class ExitStatesTest < Minitest::Test
   include InterpreterHelper
 
-  X = Statifier::Interpreter::ExitEntry
+  X = Internals::Interpreter::ExitEntry
 
   HISTORY = <<~XML
     <state id="s" initial="c">

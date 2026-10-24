@@ -7,7 +7,7 @@ require_relative "content_helper"
 class TargetsTest < Minitest::Test
   include ContentHelper
 
-  T = Statifier::Interpreter::Targets
+  T = Internals::Interpreter::Targets
 
   # sabotage: map "#_parent" to :internal in Targets.parse_target; the
   # assert_equal on the kinds fails.

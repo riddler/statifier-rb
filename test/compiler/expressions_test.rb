@@ -26,7 +26,7 @@ class CompilerExpressionsTest < Minitest::Test
   def test_a_script_compiles_through_predicator_compile_program
     script = content_of("<script>x = 1; y = x + 1</script>").first
 
-    assert_instance_of Statifier::Machine::Program, script.program
+    assert_instance_of Internals::Machine::Program, script.program
     assert_equal Predicator.compile_program!("x = 1; y = x + 1"), script.program.instructions
   end
 
@@ -43,7 +43,7 @@ class CompilerExpressionsTest < Minitest::Test
   def test_a_script_body_that_does_not_compile_is_deferred
     script = content_of("<script>x = </script>").first
 
-    assert_instance_of Statifier::Machine::Invalid, script.program
+    assert_instance_of Internals::Machine::Invalid, script.program
     assert_equal [:expression_compile_error, { kind: :content, c_index: 0 }],
                  [script.program.error.reason, script.program.error.detail[:owner]]
   end
@@ -53,8 +53,8 @@ class CompilerExpressionsTest < Minitest::Test
   def test_assign_and_namelist_refusals_are_deferred
     assign, send = content_of('<assign location="x" expr="2 +"/><send event="e" namelist="x("/>')
 
-    assert_instance_of Statifier::Machine::Invalid, assign.value
-    assert_instance_of Statifier::Machine::Invalid, send.namelist.first.expr
+    assert_instance_of Internals::Machine::Invalid, assign.value
+    assert_instance_of Internals::Machine::Invalid, send.namelist.first.expr
   end
 
   # sabotage: answer a data refusal unwrapped (drop Expressions.deferred in
@@ -62,7 +62,7 @@ class CompilerExpressionsTest < Minitest::Test
   def test_a_data_refusal_is_deferred
     data = machine('<datamodel><data id="x" expr="1 +"/></datamodel>').data_elements.first
 
-    assert_instance_of Statifier::Machine::Invalid, data.value
+    assert_instance_of Internals::Machine::Invalid, data.value
     assert_equal({ kind: :data, d_index: 0 }, data.value.error.detail[:owner])
   end
 
@@ -72,11 +72,11 @@ class CompilerExpressionsTest < Minitest::Test
   def test_send_and_cancel_fold_literals_and_compile_their_twins
     send, cancel = content_of('<send event="e.go" targetexpr="t" delay="1s"/><cancel sendid="s1"/>')
 
-    assert_equal Statifier::Machine::Static.new(value: "e.go"), send.event
+    assert_equal Internals::Machine::Static.new(value: "e.go"), send.event
     assert_equal Predicator.compile!("t"), send.target.instructions
-    assert_equal Statifier::Machine::Static.new(value: "1s"), send.delay
+    assert_equal Internals::Machine::Static.new(value: "1s"), send.delay
     assert_nil send.type
-    assert_equal Statifier::Machine::Static.new(value: "s1"), cancel.sendid
+    assert_equal Internals::Machine::Static.new(value: "s1"), cancel.sendid
   end
 
   # sabotage: fold every body to its trimmed text (static(trimmed) in
@@ -86,7 +86,7 @@ class CompilerExpressionsTest < Minitest::Test
                 '<data id="d" src="file:d"/><data id="e"> x  y </data></datamodel>')
 
     assert_equal([[1, 2], "x", nil, "x  y"], m.data_elements.values_at(0, 1, 2, 4).map { _1.value.value })
-    assert_equal Statifier::Machine::Src.new(src: "file:d"), m.data_elements[3].value
+    assert_equal Internals::Machine::Src.new(src: "file:d"), m.data_elements[3].value
   end
 
   # sabotage: drop the markup rung (no markup return in Parts#text_value); the

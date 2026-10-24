@@ -6,7 +6,7 @@ require "test_helper"
 # descriptors (as an `event` attribute is written) against event names, the
 # reference's own cases first.
 class NameMatchTest < Minitest::Test
-  N = Statifier::Interpreter::NameMatch
+  N = Internals::Interpreter::NameMatch
 
   # [descriptors as written, event name, whether they match]
   TABLE = [

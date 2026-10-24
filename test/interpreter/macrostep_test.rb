@@ -46,7 +46,7 @@ class MacrostepTest < Minitest::Test
   def test_macrostep_folds_one_macrostep_under_a_fresh_budget_and_ends_it
     started = start(%(<state id="a"><transition event="go" target="b"/></state><state id="b"/>), trace: true)
     queued = started.state.raise_internal("go", { kind: :state, state_index: 0 }).begin_macrostep
-    stepped = Statifier::Interpreter::Macrostep.macrostep(queued)
+    stepped = Internals::Interpreter::Macrostep.macrostep(queued)
 
     assert_equal %w[b], active(stepped.state)
     assert_equal "T.MacrostepStable", kinds(stepped.effects).last

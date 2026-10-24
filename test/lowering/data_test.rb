@@ -47,7 +47,7 @@ class LoweringDataTest < Minitest::Test
     source = %(<scxml><final><donedata><content> <x a="\u00e9"/> </content></donedata></final></scxml>)
 
     [source, source.b, source.encode("UTF-16LE")].each do |given|
-      content = Statifier::Lowering.lower(Statifier::XML.parse(given).value, given).value.states.first.donedata.content
+      content = Internals::Lowering.lower(Internals::XML.parse(given).value, given).value.states.first.donedata.content
 
       assert_equal [%(<x a="\u00e9"/>), Encoding::UTF_8], [content.markup, content.markup.encoding]
     end
