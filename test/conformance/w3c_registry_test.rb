@@ -33,8 +33,8 @@ class W3cRegistryTest < Minitest::Test
 
   # sabotage: remove "w3c-optional" from the registry's claims line; the
   # assert_equal on the claim names fails.
-  def test_the_registry_makes_the_scion_and_both_w3c_claims_and_not_the_statifier_one
-    assert_equal %w[scion w3c-mandatory w3c-optional], REGISTRY["claims"]
+  def test_the_registry_makes_the_scion_statifier_and_both_w3c_claims
+    assert_equal %w[scion statifier w3c-mandatory w3c-optional], REGISTRY["claims"]
     assert_equal REGISTRY["claims"], Conformance::Registry.claims_of(REGISTRY["entries"], CORPUS.by_id)
   end
 
@@ -57,9 +57,18 @@ class W3cRegistryTest < Minitest::Test
 
   # sabotage: delete the scion/actionSend/send1 line from the registry; the
   # assert_equal on the scion entries fails (the case is missing).
-  def test_scion_is_every_scion_case_and_the_statifier_suite_has_no_entry
+  def test_scion_is_every_scion_case
     assert_equal CORPUS.cases_of("scion").map { _1["id"] }, claimed_ids("scion")
-    assert_empty claimed_ids("statifier")
+  end
+
+  # sabotage: delete the statifier/send/registered_immediate line from the
+  # registry; the assert_equal on the statifier entries fails (the case is
+  # missing).
+  def test_statifier_is_every_statifier_case_the_run_passes
+    passing = CORPUS.cases_of("statifier").select { Conformance::Drive.call(_1) == :pass }.map { _1["id"] }
+
+    assert_equal passing, claimed_ids("statifier")
+    refute_empty passing
   end
 
   # sabotage: claim w3c/test201 in the registry; the assert_equal on the

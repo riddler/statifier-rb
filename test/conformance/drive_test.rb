@@ -44,11 +44,13 @@ class DriveTest < Minitest::Test
   end
 
   # sabotage: answer nil for a case with a host key (drop the `other` line in
-  # Drive.unhonoured); the assert_match on the reason fails.
+  # Drive.unhonoured); the first assert_equal on the reason fails.
   def test_a_case_asking_what_the_runner_does_not_honour_fails_naming_it
-    host = Conformance::Corpus.load.cases.find { |item| item.key?("host") && !item["host"].key?("event_io_processors") }
+    item = chart_case(%(<state id="a"/>), %w[a]).merge("host" => { "send_types" => [], "declared_events" => [],
+                                                                   "x_unknown" => 1 })
 
-    assert_match(/\Athe case's host object \(send_types/, Conformance::Drive.call(host))
+    assert_equal "the case's host object (declared_events, x_unknown) is not honoured here",
+                 Conformance::Drive.call(item)
     assert_match(/does not compile/, drive("<state", []))
   end
 
@@ -95,13 +97,13 @@ class DriveTest < Minitest::Test
                                                  provided: { PROCESSOR => -> { {} } })
   end
 
-  # sabotage: add `send_types` to HONOURED_HOST_KEYS; the assert_equal on the
+  # sabotage: add `to_source` to HONOURED_HOST_KEYS; the assert_equal on the
   # refusal fails (the key is then read and passes unnamed).
   def test_a_host_key_the_drive_does_not_read_is_refused_beside_a_provided_processor
     item = host_case([PROCESSOR])
-    item["host"]["send_types"] = ["test:sink"]
+    item["host"]["to_source"] = "<scxml/>"
 
-    assert_equal "the case's host object (send_types) is not honoured here",
+    assert_equal "the case's host object (to_source) is not honoured here",
                  Conformance::Drive.call(item, provided: { PROCESSOR => -> { {} } })
   end
 

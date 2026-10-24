@@ -58,13 +58,13 @@ class RegistryTest < Minitest::Test
 
   # sabotage: append a blank line to conformance/registry.json; the
   # assert_empty on its problems fails (the encoding check names it).
-  def test_the_shipped_registry_passes_and_claims_only_scion_and_w3c_cases
+  def test_the_shipped_registry_passes_and_claims_the_suites_its_entries_count_toward
     bytes = File.binread(Conformance::Registry::PATH)
     shipped = JSON.parse(bytes)
 
     assert_empty Conformance::RegistryCheck.problems(bytes, CORPUS, Conformance::Runner.run(CORPUS))
-    assert_equal %w[scion w3c-mandatory w3c-optional], shipped["claims"]
-    assert_equal %w[scion w3c], shipped["entries"].map { |entry| entry["suite"] }.uniq
+    assert_equal %w[scion statifier w3c-mandatory w3c-optional], shipped["claims"]
+    assert_equal %w[scion statifier w3c], shipped["entries"].map { |entry| entry["suite"] }.uniq
   end
 
   # sabotage: make currency answer []; the assert_equal on the entry that no

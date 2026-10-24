@@ -93,15 +93,33 @@ harness. A case's `host.event_io_processors` names the Event I/O
 Processors its host runs: the drive registers with the driver every
 processor its table (`Conformance::Drive::PROVIDED`, keyed by the URI the case
 names, empty until the package provides one) holds for a named URI, and fails
-a case naming a URI the table does not hold, naming that URI. Any other host
-key, or a step stating an exported position, fails the case naming what it
-asks for. This registry claims the scion
-suite, every one of its cases, and the w3c cases the run passes: the
-`w3c-mandatory` claim covers its mandatory entries and the `w3c-optional`
-claim its optional ones. The w3c cases left out are the two mandatory cases
-the run fails and the optional cases whose host object names the BasicHTTP
-processor, which the drive does not provide; the statifier cases are
-unclaimed however the run answers them. Beside the drive, the position round-trip
+a case naming a URI the table does not hold, naming that URI. A case's
+`host.send_types` and `host.expect_sends` are read as the reference's
+host-case harness reads them: a host of the case's own
+(`Conformance::Host` in `test/conformance/host.rb`) is registered under
+every send type the case names, from the start of the chart, and records
+each send the driver hands it, in the case's item shape, delivering none;
+once every configuration agrees, the sends handed over the whole drive, in
+order and each with its outcome, must be exactly `expect_sends`. A
+`<cancel>` that reaches the host marks the delayed send it names
+`"outcome": "cancelled"` when the expected item at that send's position
+asks for it, and a step of a case with a host object sends its event's
+`data`, when it gives one. An expected send that asks the host to report it
+failed (`"outcome": "fail"`), any other host key (the accepts check's
+`declared_events` and `expect_accepts`, the diff pair's `to_source`,
+`expect_diff`, `mapping` and `expect_compatible_at`), and a step stating an
+exported position each fail the case naming what it asks for. This
+registry claims the scion suite, every one of its cases, the w3c cases the
+run passes and the statifier cases the run passes: the `w3c-mandatory`
+claim covers its mandatory entries, the `w3c-optional` claim its optional
+ones and the `statifier` claim its statifier entries, since a claim is the
+set of its entries (the copy's `RATCHET.md`, "Claims"), not a statement
+that every case of the suite passes. The w3c cases left out are the two
+mandatory cases the run fails and the optional cases whose host object
+names the BasicHTTP processor, which the drive does not provide. The
+statifier cases left out are the ones that fail for what the drive does
+not do yet (the gap list names each with its reason); each joins the claim
+when the ratchet sees it pass. Beside the drive, the position round-trip
 property (`test/conformance/position_property.rb`), a test of the gate,
 takes a point after the start and after every step of each scion case,
 exports the position there, carries it through JSON, imports it into a fresh
