@@ -103,27 +103,43 @@ once every configuration agrees, the sends handed over the whole drive, in
 order and each with its outcome, must be exactly `expect_sends`. A
 `<cancel>` that reaches the host marks the delayed send it names
 `"outcome": "cancelled"` when the expected item at that send's position
-asks for it, and a step of a case with a host object sends its event's
-`data`, when it gives one. A send whose expected item asks the host to
+asks for it, and a step of a case with a host object, or of a case stating
+an exported position, sends its event's `data`, when it gives one. A send
+whose expected item asks the host to
 report it failed (`"outcome": "fail"`) is marked so and reported through
 `Statifier.report_send_failed` once the driver call that handed it returns,
 before the configuration is read, as the reference's harness reports it
 before it reads the next configuration; a report the driver refuses because
-the chart has stopped is dropped. Any other host key (the accepts check's
-`declared_events` and `expect_accepts`, the diff pair's `to_source`,
-`expect_diff`, `mapping` and `expect_compatible_at`), and a step stating an
-exported position each fail the case naming what it asks for. This
+the chart has stopped is dropped. A case's `host.declared_events` and
+`host.expect_accepts` are read as the reference's harness reads them:
+`Statifier.check_accepts` answers for the compiled chart before it starts,
+and its two lists must be exactly `expect_accepts`. A host object's diff
+pair, `to_source` and `expect_diff` with an optional `mapping` and
+`expect_compatible_at`, is compared by nothing here, as the reference's
+harness compares none of the four: a case carrying it is driven like any
+other host case, and agrees on its configurations and its sends. A step's
+`expect_position` is compared, once that step's configuration agrees, with
+the state's position exported through `Statifier.export_position` and
+rendered as the reference's harness renders it
+(`Conformance::PositionExpectation` in
+`test/conformance/position_expectation.rb`): the configuration, the entered
+states and the states to invoke, each sorted; each history state's recorded
+states, sorted; each active invocation as its state and index, sorted; the
+running flag; and the datamodel without `_event`, `_ioprocessors` and
+`_sessionid`, and without `_name` unless the `<scxml>` element carries a
+`name` attribute, each value in its JSON form. A date, a datetime or a
+duration has no JSON form and fails the step naming its variable, and a
+case stating a position on a document with a state that has no id fails
+before it is driven. Any other host key fails the case naming it. This
 registry claims the scion suite, every one of its cases, the w3c cases the
-run passes and the statifier cases the run passes: the `w3c-mandatory`
+run passes and every case of the statifier suite: the `w3c-mandatory`
 claim covers its mandatory entries, the `w3c-optional` claim its optional
 ones and the `statifier` claim its statifier entries, since a claim is the
 set of its entries (the copy's `RATCHET.md`, "Claims"), not a statement
 that every case of the suite passes. The w3c cases left out are the two
 mandatory cases the run fails and the optional cases whose host object
-names the BasicHTTP processor, which the drive does not provide. The
-statifier cases left out are the ones that fail for what the drive does
-not do yet (the gap list names each with its reason); each joins the claim
-when the ratchet sees it pass. Beside the drive, the position round-trip
+names the BasicHTTP processor, which the drive does not provide. Beside the
+drive, the position round-trip
 property (`test/conformance/position_property.rb`), a test of the gate,
 takes a point after the start and after every step of each scion case,
 exports the position there, carries it through JSON, imports it into a fresh
