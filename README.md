@@ -372,7 +372,10 @@ end
 
 Each send the processor is handed becomes one POST to its target, made once
 through the transport while the call that handed it runs. The request is built
-as the reference's processor builds it, by the shape of the send's data:
+as the reference's processor builds it, by the shape of the send's data, with
+one difference: names and keys always stand in byte order, which is the
+reference's order for a map of 32 keys or fewer, while it lists a larger map in
+an order of its own:
 
 | The send's data | Body | Content type | The event name |
 |---|---|---|---|
