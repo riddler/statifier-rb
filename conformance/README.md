@@ -89,8 +89,13 @@ into the run. It drives each case through the package's driver
 (`Statifier.start`, `Statifier.step` and `Statifier.advance`) on a virtual
 clock that settles 100 virtual milliseconds before each event and waits at
 most 4000 virtual milliseconds after it, the two knobs of the reference's
-harness. A case carrying a `host` object, or a step stating an exported
-position, fails naming what it asks for. This registry claims the scion
+harness. A case's `host.event_io_processors` names the Event I/O
+Processors its host runs: the drive registers with the driver every
+processor its table (`Conformance::Drive::PROVIDED`, keyed by the URI the case
+names, empty until the package provides one) holds for a named URI, and fails
+a case naming a URI the table does not hold, naming that URI. Any other host
+key, or a step stating an exported position, fails the case naming what it
+asks for. This registry claims the scion
 suite, every one of its cases, and the w3c cases the run passes: the
 `w3c-mandatory` claim covers its mandatory entries and the `w3c-optional`
 claim its optional ones. The w3c cases left out are the two mandatory cases

@@ -45,9 +45,19 @@ module Conformance
   #   that holds.
   #
   # The clock only ever moves to a due time, because nothing but a firing
-  # timer changes the configuration between two events. A case carrying a
-  # host object, or a step stating an exported position, asks for what this
-  # runner does not honour yet, and fails with that named.
+  # timer changes the configuration between two events.
+  #
+  # The host object. A case's `host.event_io_processors` names the Event I/O
+  # Processors its host runs, by URI, as the reference's harness reads it
+  # (`@event_io_processors` and `with_event_io_processors/2` in
+  # lib/mix/statifier/corpus/host_case.ex). The drive registers with the
+  # driver, on every call, each processor PROVIDED holds for a URI the case
+  # names, under every send type that entry names, and fails a case naming a
+  # URI PROVIDED holds no entry for, naming that URI. A host key other than
+  # `event_io_processors` (the statifier suite's `send_types` and
+  # `expect_sends` and the rest) is not honoured here and fails the case
+  # naming the key. A case stating an exported position asks for what this
+  # runner does not compare yet, and fails with that named.
   module Drive
     # How long, in virtual ms, the clock may run before an event to drain
     # short timers.
@@ -57,36 +67,72 @@ module Conformance
     # expectation.
     CONFIGURATION_DEADLINE_MS = 4000
 
-    # The answer for item: :pass, or the reason it failed.
-    def self.call(item)
-      unhonoured = unhonoured(item)
+    # The Event I/O Processors this package provides, by the URI a case's
+    # `host.event_io_processors` names them under: each entry is a callable
+    # answering a Hash of send type to processor (an object answering
+    # `deliver`), every type the processor is registered under. It is empty
+    # until the package provides a processor; a release that adds one adds
+    # its entry here and nowhere else.
+    PROVIDED = {}.freeze
+
+    # The host keys the drive reads; any other is not honoured.
+    HONOURED_HOST_KEYS = ["event_io_processors"].freeze
+
+    # The answer for item: :pass, or the reason it failed. provided is the
+    # table of processors the drive can register (PROVIDED, unless a test
+    # names another).
+    def self.call(item, provided: PROVIDED)
+      unhonoured = unhonoured(item, provided)
       return unhonoured if unhonoured
 
       compiled = Statifier.compile(item.fetch("source"))
       return "the source does not compile: #{compiled.error.map { "#{_1.reason}: #{_1.message}" }.join("; ")}" \
         unless compiled.ok?
 
-      drive(item, compiled.value)
+      drive(item, compiled.value, registered(item, provided))
     end
 
     # What the case asks of its host that this runner does not honour, or
-    # nil.
-    def self.unhonoured(item)
-      return "the case's host object (#{item["host"].keys.join(", ")}) is not honoured here" if item.key?("host")
+    # nil: a host key it does not read, a processor `provided` holds no
+    # entry for, or an exported position.
+    def self.unhonoured(item, provided = PROVIDED)
+      host = item.fetch("host", {})
+      other = host.keys - HONOURED_HOST_KEYS
+      return "the case's host object (#{other.join(", ")}) is not honoured here" unless other.empty?
+
+      missing = named(host).reject { provided.key?(_1) }
+      unless missing.empty?
+        return "the case's host object names the Event I/O Processor #{missing.join(", ")}, " \
+               "which this package does not provide"
+      end
       return unless item.fetch("steps").any? { _1.key?("expect_position") }
 
       "a step states an exported position, which this runner does not compare yet"
     end
 
-    # The start and every step, compared in turn.
-    def self.drive(item, machine)
-      state = moved(Statifier.start(machine, session_id: item.fetch("id")))
-      state = await(state, item.fetch("initial_configuration"), 0)
+    # The URIs a host object's `event_io_processors` names, in order; a value
+    # that is not a list is named whole, as it came, so it is refused.
+    def self.named(host)
+      value = host.fetch("event_io_processors", [])
+      value.is_a?(Array) ? value : [value.inspect]
+    end
+
+    # The processors to hand the driver on every call for item: the send
+    # types of every entry of `provided` the case names.
+    def self.registered(item, provided)
+      named(item.fetch("host", {})).each_with_object({}) { |uri, types| types.merge!(provided.fetch(uri).call) }
+    end
+
+    # The start and every step, compared in turn; processors go with every
+    # call, as the driver asks.
+    def self.drive(item, machine, processors = {})
+      state = moved(Statifier.start(machine, session_id: item.fetch("id"), processors:))
+      state = await(state, item.fetch("initial_configuration"), 0, processors)
       failed = compare(state, item.fetch("initial_configuration"), "the initial configuration")
       return failed if failed
 
       item.fetch("steps").each_with_index do |step, index|
-        state, failed = drive_step(state, step, index)
+        state, failed = drive_step(state, step, index, processors)
         return failed if failed
       end
       :pass
@@ -94,11 +140,11 @@ module Conformance
 
     # One step: the clock settled, the event sent, the expectation awaited
     # and compared. `[state, reason]`, the reason nil when it agrees.
-    def self.drive_step(state, step, index)
-      state = settle(state)
+    def self.drive_step(state, step, index, processors = {})
+      state = settle(state, processors)
       since = state.now_ms
       name = step.fetch("event").fetch("name")
-      state = await(moved(Statifier.step(state, name)), step.fetch("configuration"), since)
+      state = await(moved(Statifier.step(state, name, processors:)), step.fetch("configuration"), since, processors)
       [state, compare(state, step.fetch("configuration"), "step #{index + 1} (event #{name.inspect})")]
     end
 
@@ -120,19 +166,19 @@ module Conformance
     end
 
     # The settle window.
-    def self.settle(state)
+    def self.settle(state, processors = {})
       window_end = state.now_ms + SETTLE_WINDOW_MS
       loop do
         due = earliest_due(state)
         return state if due.nil?
-        return moved(Statifier.advance(state, window_end - state.now_ms)) if due > window_end
+        return moved(Statifier.advance(state, window_end - state.now_ms, processors:)) if due > window_end
 
-        state = moved(Statifier.advance(state, due - state.now_ms))
+        state = moved(Statifier.advance(state, due - state.now_ms, processors:))
       end
     end
 
     # The configuration deadline after `since`.
-    def self.await(state, expected, since)
+    def self.await(state, expected, since, processors = {})
       deadline = since + CONFIGURATION_DEADLINE_MS
       loop do
         return state if leaves(state) == expected.sort || !state.done.nil?
@@ -140,7 +186,7 @@ module Conformance
         due = earliest_due(state)
         return state if due.nil? || due > deadline
 
-        state = moved(Statifier.advance(state, due - state.now_ms))
+        state = moved(Statifier.advance(state, due - state.now_ms, processors:))
       end
     end
 

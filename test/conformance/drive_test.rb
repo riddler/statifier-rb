@@ -43,13 +43,82 @@ class DriveTest < Minitest::Test
                  drive(body, %w[x y], [["e.go", %w[q]]])
   end
 
-  # sabotage: answer nil for a case with a host object (drop the `host` line
-  # in Drive.unhonoured); the assert_match on the reason fails.
+  # sabotage: answer nil for a case with a host key (drop the `other` line in
+  # Drive.unhonoured); the assert_match on the reason fails.
   def test_a_case_asking_what_the_runner_does_not_honour_fails_naming_it
     host = Conformance::Corpus.load.cases.find { |item| item.key?("host") && !item["host"].key?("event_io_processors") }
 
     assert_match(/\Athe case's host object \(send_types/, Conformance::Drive.call(host))
     assert_match(/does not compile/, drive("<state", []))
+  end
+
+  # A processor of the test's own: it records what it is handed.
+  class Recorder
+    attr_reader :sent
+
+    def initialize = @sent = []
+    def deliver(send, _event, _context) = @sent << send.target
+    def cancel(*) = nil
+  end
+
+  PROCESSOR = "urn:test:processor"
+
+  # A case whose host names the processors, around a chart that sends to the
+  # type the test processor is registered under on entering b.
+  def host_case(processors)
+    body = %(<state id="a"><transition event="e.go" target="b"/></state>) +
+           %(<state id="b"><onentry><send type="test:sink" target="t" event="x"/></onentry></state>)
+    chart_case(body, %w[a], [["e.go", %w[b]]]).merge("host" => { "event_io_processors" => processors })
+  end
+
+  # sabotage: answer {} from Drive.registered; the assert_equal on the
+  # processor's recorded targets fails (nothing is registered, so nothing
+  # is delivered to it).
+  def test_a_case_naming_a_provided_processor_is_driven_with_it_registered
+    recorder = Recorder.new
+    provided = { PROCESSOR => -> { { "test:sink" => recorder } } }
+
+    assert_equal :pass, Conformance::Drive.call(host_case([PROCESSOR]), provided:)
+    assert_equal ["t"], recorder.sent
+  end
+
+  # sabotage: treat a URI `provided` holds no entry for as providing nothing
+  # (`missing = []` in Drive.unhonoured, `provided.fetch(uri, -> { {} })` in
+  # Drive.registered); the first assert_equal on the reason fails (the case
+  # then passes).
+  def test_a_case_naming_a_processor_that_is_not_provided_is_refused_naming_it
+    reason = "the case's host object names the Event I/O Processor urn:test:other, " \
+             "which this package does not provide"
+
+    assert_equal reason, Conformance::Drive.call(host_case(["urn:test:other"]), provided: { PROCESSOR => -> { {} } })
+    assert_equal reason, Conformance::Drive.call(host_case([PROCESSOR, "urn:test:other"]),
+                                                 provided: { PROCESSOR => -> { {} } })
+  end
+
+  # sabotage: add `send_types` to HONOURED_HOST_KEYS; the assert_equal on the
+  # refusal fails (the key is then read and passes unnamed).
+  def test_a_host_key_the_drive_does_not_read_is_refused_beside_a_provided_processor
+    item = host_case([PROCESSOR])
+    item["host"]["send_types"] = ["test:sink"]
+
+    assert_equal "the case's host object (send_types) is not honoured here",
+                 Conformance::Drive.call(item, provided: { PROCESSOR => -> { {} } })
+  end
+
+  # sabotage: answer [] for a value that is not an Array in Drive.named; the
+  # assert_equal on the reason fails (the case then names nothing and passes).
+  def test_a_processor_list_that_is_not_a_list_is_refused_whole
+    item = host_case(PROCESSOR)
+
+    reason = Conformance::Drive.call(item, provided: { PROCESSOR => -> { {} } })
+
+    assert_equal "the case's host object names the Event I/O Processor \"urn:test:processor\", " \
+                 "which this package does not provide", reason
+  end
+
+  # sabotage: add an entry to Drive::PROVIDED; the assert_empty fails.
+  def test_the_package_provides_no_processor_yet
+    assert_empty Conformance::Drive::PROVIDED
   end
 
   # sabotage: set SETTLE_WINDOW_MS to 5000; the assert_equal on the guarded
