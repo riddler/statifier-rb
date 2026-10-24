@@ -44,7 +44,7 @@ class PositionPropertyTest < Minitest::Test
 
   # The counts move only with the corpus or with what the driver leaves
   # pending at a point; a change in either is read here before it lands.
-  # sabotage: export the recorded history as empty in Position.exported
+  # sabotage: export the recorded history as empty in Position::Codec.exported
   # (`"history_values" => {}`); the assert_equal on the disagreements fails.
   def test_every_point_after_every_start_and_step_of_the_scion_suite_that_is_carried_agrees
     report = self.class.report

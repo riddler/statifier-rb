@@ -4,7 +4,8 @@ module Statifier
   module BasicHTTP
     # The response a transport answers, whatever its status: a status
     # outside 2xx is a response, not a {TransportError}. A frozen value,
-    # deeply: the strings it is built from are copied, never frozen in place.
+    # deeply: a string it is built from that is not frozen is copied, never
+    # frozen in place, and one already frozen is kept.
     #
     # @!attribute [r] status
     #   @return [Integer] the HTTP status code, from 100 to 599

@@ -132,7 +132,7 @@ transition selection matches an event: `e`, `e.`, `e.*` and `*` all match
 `e.go`, and `e.gone` does not. It answers two frozen lists:
 `unreachable`, the declared names no descriptor matches, in the declaration's
 order; and `undeclared`, the descriptors that match no declared name, in
-document order. With `nil` for the declaration both lists are empty.
+transition order (a state's own transitions before its children's). With `nil` for the declaration both lists are empty.
 
 ```ruby
 machine = Statifier.compile(<<~SCXML).value
@@ -480,8 +480,8 @@ that came back or raises the transport error:
 - **The request**, `Statifier::BasicHTTP::Request`, a frozen value with
   `http_method` (an HTTP token such as `"POST"`), `url` (an absolute URL),
   `headers` (name and value pairs, in order, a name allowed more than once)
-  and `body` (a String, already encoded, empty for none). Building one copies
-  the strings it is given and refuses a method or header name that is not an
+  and `body` (a String, already encoded, empty for none). Building one keeps
+  a string that is already frozen and copies any other, and refuses a method or header name that is not an
   HTTP token and a header value holding a carriage return, a line feed or a
   NUL.
 - **The response**, `Statifier::BasicHTTP::Response`, a frozen value with
@@ -491,7 +491,11 @@ that came back or raises the transport error:
 - **The error**, `Statifier::BasicHTTP::TransportError`, the one error a
   transport raises when no response came back: a URL it cannot request, a
   connection refused or failed, a time bound passed, an exchange broken off.
-  The error that caused it, when there was one, is its `cause`.
+  The error that caused it, when there was one, is its `cause`. One edge: a
+  response the default transport reads but cannot build a `Response` from (a
+  header name that is not an HTTP token, a header value holding a carriage
+  return, a line feed or a NUL) is raised as a `TransportError` too, since no
+  usable response came back.
 
 A transport makes one attempt; retrying is not its job.
 
@@ -551,17 +555,20 @@ a case this package answers differently from the corpus is this package's bug,
 and no case is skipped. `conformance/registry.json` lists the cases this gem
 claims to pass, and the gate fails if one of them does not.
 
-| Claim | Cases claimed | Of |
-|---|---|---|
-| `scion` | 119 | 119 cases in the scion suite |
-| `statifier` | 36 | 36 cases in the statifier suite |
-| `w3c-mandatory` | 152 | 154 mandatory cases in the w3c suite |
-| `w3c-optional` | 13 | 14 optional cases in the w3c suite |
+| Suite | Claim | Cases | Claimed | Unclaimed |
+|---|---|---|---|---|
+| scion | `scion` | 119 | 119 | 0 |
+| statifier | `statifier` | 36 | 36 | 0 |
+| w3c | `w3c-mandatory` | 154 | 152 | 2 |
+| w3c | `w3c-optional` | 14 | 13 | 1 |
+| all | | 323 | 320 | 3 |
 
-The registry holds 320 entries, which is the sum of the four rows. A claim is
-the set of its entries, not a statement that every case of its suite passes.
-The registry holds the same entries and the same four claims as the
-reference's registry at that tag.
+The registry holds 320 entries, which is the sum of the Claimed column. The
+numbers are read from the registry and from the vendored corpus, not counted
+by hand, and `test/conformance/readme_test.rb` fails when this section and
+the registry disagree. A claim is the set of its entries, not a statement
+that every case of its suite passes. The registry holds the same entries and
+the same four claims as the reference's registry at that tag.
 
 The optional w3c cases whose host needs the Basic HTTP Event I/O Processor
 are driven through this gem's processor, delivering to an in-memory loopback
@@ -569,13 +576,14 @@ front in the test suite rather than to an HTTP server on a local port as the
 reference's harness does: no socket is opened, so these cases prove the
 processor and the core's event path, not a network round trip.
 
-What is not claimed:
+Three cases are not claimed, and the reference's registry does not claim any
+of them either:
 
-- `w3c/test330` and `w3c/test552`, the two mandatory w3c cases the run fails,
-  the reference's registry does not claim them either.
-- `w3c/test201`, an optional w3c case that needs the Basic HTTP Event I/O
-  Processor: the chart's own event is taken before the delivered one, so it
-  ends in `fail`; the reference's registry does not claim it either.
+| Case | Claim | Why it is not claimed |
+|---|---|---|
+| `w3c/test201` | `w3c-optional` | The chart sends to itself over Basic HTTP and also sends its own timeout event; the chart's own event is taken before the delivered one, so it ends in `fail` |
+| `w3c/test330` | `w3c-mandatory` | The guards compare `_event` fields against `undefined`, and a field the event does not carry (`sendid`, `origin`, `origintype`, `invokeid`, `data`) makes the comparison false, so it ends in `fail` |
+| `w3c/test552` | `w3c-mandatory` | A `<data src>` is never fetched, so the datamodel value the case reads is never bound and it ends in `fail` |
 
 Running the gate prints the gap list: every unclaimed case with the features it
 needs and whether it passes or why it fails.

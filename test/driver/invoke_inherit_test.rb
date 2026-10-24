@@ -83,7 +83,7 @@ class DriverInvokeInheritTest < Minitest::Test
     assert_equal([1, 0], [traced, plain].map { child_effects(_1, "s1.c").grep(T::EntrySet).size })
   end
 
-  # sabotage: export `"active_invocations" => []` in Position.exported; the
+  # sabotage: export `"active_invocations" => []` in Position::Codec.exported; the
   # assert_equal on the position fails.
   def test_a_position_taken_with_a_live_child_carries_the_invocation_but_not_the_child
     started = start(invoking(%(<state id="x"/>), %(<transition event="e.go" target="b"/>), %(<state id="b"/>)))
