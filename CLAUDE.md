@@ -182,9 +182,18 @@ will call to evaluate a condition or a value, run a `<script>` program,
 write an `<assign>` location, bind `<data>`, seed the system variables and
 read a delay, each through predicator with `In()` as a host function, and
 each answering a failure as the reason its `error.execution` carries.
+With them is the interpreter's algorithm, `Statifier::Interpreter` under
+`lib/statifier/interpreter/`, internal too: the specification's
+transition selection (with the event-name matcher), the entry set, and
+exit and entry, as pure functions over the machine, a configuration, the
+recorded history and the datamodel. They answer the transitions that
+fire, the states to exit and enter in order, the history to record, the
+content each entry runs and the completion events it raises, as frozen
+values; they run no executable content.
 The 2019 stub is gone. The
-interpreter arrives with later changes; until it does, the
-sentences in this file about it describe the target, not the current tree,
+step loop that runs them and the driver arrive with later changes; until
+they do, the
+sentences in this file about them describe the target, not the current tree,
 and the registry claims no case.
 
 - **The gem is `statifier`.** 0.1.0 replaces the 2019 stub, which carried
